@@ -1,0 +1,12 @@
+streamlit
+pandas
+folium
+streamlit-folium
+streamlit-geolocation
+plotly
+numpy
+pyproj
+ezdxf
+pyshp
+matplotlib
+Pillow
