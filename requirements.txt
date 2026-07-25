@@ -4,6 +4,7 @@ folium
 streamlit-folium
 streamlit-geolocation
 plotly
+kaleido
 numpy
 pyproj
 ezdxf
