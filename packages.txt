@@ -1,4 +1,4 @@
 texlive-latex-base
 texlive-fonts-recommended
 texlive-latex-extra
-texlive-lang-Spanish
+texlive-lang-spanish
