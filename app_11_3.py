@@ -1,9 +1,9 @@
 # ===================================================================
-# GEOPORTAL WEB - VERSIÓN 11.4 (FIX DE CACHÉ Y RENDERIZADO ESTABLE)
+# GEOPORTAL WEB - VERSIÓN 12.0 (ARQUITECTURA HÍBRIDA - FIX KALEIDO)
 # Novedades: 
-# 1. Corrección del error pd.read_json en el servidor de Streamlit Cloud.
-# 2. Simplificación del motor de caché para evitar dependencias serializadas.
-# 3. Mantenimiento del diagrama de masas interactivo y grillas Bottom-Up.
+# 1. Eliminación total de 'kaleido' para la exportación de PDFs.
+# 2. Motor gráfico paralelo con Matplotlib (Ultrarrápido y no se congela).
+# 3. Interfaz interactiva mantenida con Plotly.
 # ===================================================================
 import streamlit as st
 import pandas as pd
@@ -16,6 +16,7 @@ import shutil
 from datetime import datetime
 from streamlit_geolocation import streamlit_geolocation
 import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 import numpy as np
 import pyproj 
 import glob
@@ -72,15 +73,9 @@ df_plantilla_niv_abierta = pd.DataFrame({
 })
 
 # ===================================================================
-# FUNCIONES AUXILIARES PARA GRÁFICOS Y OPTIMIZACIÓN
+# FUNCIONES MATEMÁTICAS PARA GRÁFICOS (PLOTLY + MATPLOTLIB)
 # ===================================================================
-
-def crear_figura_seccion(df_plot, abs_plot):
-    """Genera la figura Plotly de una sección transversal para exportación."""
-    x_vals = df_plot['Distancia Eje (m)'].values.tolist()
-    y_dis = df_plot['Cota Diseño (m)'].values.tolist()
-    y_ter = df_plot['Cota Terreno (m)'].values.tolist()
-    
+def calcular_intersecciones_seccion(x_vals, y_dis, y_ter):
     x_final, y_dis_final, y_ter_final = [], [], []
     for i in range(len(x_vals) - 1):
         x_final.append(x_vals[i])
@@ -96,33 +91,78 @@ def crear_figura_seccion(df_plot, abs_plot):
             x_final.append(x_inter)
             y_dis_final.append(y_inter)
             y_ter_final.append(y_inter)
-            
     x_final.append(x_vals[-1])
     y_dis_final.append(y_dis[-1])
     y_ter_final.append(y_ter[-1])
-    x_final = np.array(x_final)
-    y_dis_final = np.array(y_dis_final)
-    y_ter_final = np.array(y_ter_final)
+    return np.array(x_final), np.array(y_dis_final), np.array(y_ter_final)
 
-    y_min = np.minimum(y_dis_final, y_ter_final)
-    y_max = np.maximum(y_dis_final, y_ter_final)
+def crear_figura_seccion_plotly(df_plot, abs_plot):
+    """Genera la figura INTERACTIVA para la pantalla Web."""
+    x_vals = df_plot['Distancia Eje (m)'].values.tolist()
+    y_dis = df_plot['Cota Diseño (m)'].values.tolist()
+    y_ter = df_plot['Cota Terreno (m)'].values.tolist()
+    x_f, y_dis_f, y_ter_f = calcular_intersecciones_seccion(x_vals, y_dis, y_ter)
+    y_min, y_max = np.minimum(y_dis_f, y_ter_f), np.maximum(y_dis_f, y_ter_f)
     
-    fig_sec = go.Figure()
-    fig_sec.add_trace(go.Scatter(x=x_final, y=y_dis_final, mode='lines', line=dict(width=0), showlegend=False, hoverinfo='skip'))
-    fig_sec.add_trace(go.Scatter(x=x_final, y=y_max, mode='none', fill='tonexty', fillcolor='rgba(220, 53, 69, 0.45)', name='Corte'))
-    fig_sec.add_trace(go.Scatter(x=x_final, y=y_min, mode='lines', line=dict(width=0), showlegend=False, hoverinfo='skip'))
-    fig_sec.add_trace(go.Scatter(x=x_final, y=y_dis_final, mode='none', fill='tonexty', fillcolor='rgba(40, 167, 69, 0.45)', name='Relleno'))
-    fig_sec.add_trace(go.Scatter(x=x_vals, y=y_ter, mode='lines+markers', name='Terreno', line=dict(color='#8D6E63', width=2), marker=dict(size=4, color='#5D4037')))
-    fig_sec.add_trace(go.Scatter(x=x_vals, y=y_dis, mode='lines+markers', name='Diseño', line=dict(color='#343A40', width=2), marker=dict(size=4, color='#212529')))
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x_f, y=y_dis_f, mode='lines', line=dict(width=0), showlegend=False, hoverinfo='skip'))
+    fig.add_trace(go.Scatter(x=x_f, y=y_max, mode='none', fill='tonexty', fillcolor='rgba(220, 53, 69, 0.45)', name='Corte'))
+    fig.add_trace(go.Scatter(x=x_f, y=y_min, mode='lines', line=dict(width=0), showlegend=False, hoverinfo='skip'))
+    fig.add_trace(go.Scatter(x=x_f, y=y_dis_f, mode='none', fill='tonexty', fillcolor='rgba(40, 167, 69, 0.45)', name='Relleno'))
+    fig.add_trace(go.Scatter(x=x_vals, y=y_ter, mode='lines+markers', name='Terreno', line=dict(color='#8D6E63', width=2), marker=dict(size=4, color='#5D4037')))
+    fig.add_trace(go.Scatter(x=x_vals, y=y_dis, mode='lines+markers', name='Diseño', line=dict(color='#343A40', width=2), marker=dict(size=4, color='#212529')))
     
-    fig_sec.update_layout(
-        title=dict(text=f'Sección K{abs_plot:.3f}', font=dict(size=14)),
-        xaxis_title='Dist. Eje (m)', yaxis_title='Cota (m)',
-        margin=dict(l=30, r=30, t=40, b=30),
-        plot_bgcolor='rgba(245, 245, 245, 1)',
-        showlegend=False
-    )
-    return fig_sec
+    fig.update_layout(title=dict(text=f'Sección K{abs_plot:.3f}', font=dict(size=14)), xaxis_title='Dist. Eje (m)', yaxis_title='Cota (m)', margin=dict(l=30, r=30, t=40, b=30), plot_bgcolor='rgba(245, 245, 245, 1)', showlegend=False)
+    return fig
+
+# ======= MOTOR DE RENDERIZADO ULTRARRÁPIDO CON MATPLOTLIB (PARA PDF) =======
+def guardar_imagen_masa_plt(df_vol, ruta):
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(df_vol['Abscisa (K)'], df_vol['Masa Acumulada (m³)'], color='#0D47A1', linewidth=2, marker='o', markersize=4, markerfacecolor='#FF8C00')
+    ax.fill_between(df_vol['Abscisa (K)'], df_vol['Masa Acumulada (m³)'], 0, color='#0D47A1', alpha=0.2)
+    ax.set_title("Diagrama de Masas (Curva Masa)", fontsize=14, fontweight='bold')
+    ax.set_xlabel("Abscisa (Distancia en K)", fontsize=11)
+    ax.set_ylabel("Volumen Neto Acumulado (m³)", fontsize=11)
+    ax.grid(True, linestyle='--', alpha=0.6)
+    fig.tight_layout()
+    fig.savefig(ruta, dpi=150)
+    plt.close(fig)
+
+def guardar_seccion_plt(df_plot, abs_plot, ruta):
+    x_vals = df_plot['Distancia Eje (m)'].values.tolist()
+    y_dis = df_plot['Cota Diseño (m)'].values.tolist()
+    y_ter = df_plot['Cota Terreno (m)'].values.tolist()
+    
+    x_f, y_dis_f, y_ter_f = calcular_intersecciones_seccion(x_vals, y_dis, y_ter)
+    y_min, y_max = np.minimum(y_dis_f, y_ter_f), np.maximum(y_dis_f, y_ter_f)
+    
+    fig, ax = plt.subplots(figsize=(6, 3.5))
+    ax.fill_between(x_f, y_dis_f, y_max, where=(y_max > y_dis_f), color='#DC3545', alpha=0.45, label='Corte')
+    ax.fill_between(x_f, y_min, y_dis_f, where=(y_dis_f > y_min), color='#28A745', alpha=0.45, label='Relleno')
+    
+    ax.plot(x_vals, y_ter, marker='.', color='#8D6E63', label='Terreno', linewidth=1.5)
+    ax.plot(x_vals, y_dis, marker='.', color='#343A40', label='Diseño', linewidth=1.5)
+    
+    ax.set_title(f'Sección K{abs_plot:.3f}', fontsize=11, fontweight='bold')
+    ax.set_xlabel('Distancia Eje (m)', fontsize=9)
+    ax.set_ylabel('Cota (m)', fontsize=9)
+    ax.grid(True, linestyle='--', alpha=0.4)
+    fig.tight_layout()
+    fig.savefig(ruta, dpi=120)
+    plt.close(fig)
+
+def guardar_perfil_altimetria_plt(df_niv, ruta):
+    df_niv['Cota Ajustada'] = pd.to_numeric(df_niv['Cota Ajustada'], errors='coerce')
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(df_niv['Estaca / Punto'], df_niv['Cota Ajustada'], color='#FF8C00', marker='o', linewidth=2, markersize=6, markerfacecolor='#0D47A1')
+    ax.set_title("Perfil Topográfico Altimétrico", fontsize=14, fontweight='bold')
+    ax.set_xlabel("Estaciones / Puntos", fontsize=11)
+    ax.set_ylabel("Elevación (msnm)", fontsize=11)
+    ax.grid(True, linestyle='--', alpha=0.6)
+    plt.xticks(rotation=45)
+    fig.tight_layout()
+    fig.savefig(ruta, dpi=150)
+    plt.close(fig)
 
 # ===================================================================
 # GESTOR DE PROYECTOS Y GUARDADO MANUAL
@@ -337,6 +377,8 @@ if st.session_state.modo_app == "Inicio":
                 proy_eliminar = st.selectbox("Seleccione un proyecto para borrar:", lista_proyectos, key="sel_eliminar")
                 if st.button("⚠️ Eliminar Permanentemente", use_container_width=True):
                     os.remove(os.path.join(DIR_PROYECTOS, f"{proy_eliminar}.pkl"))
+                    if os.path.exists(os.path.join("Fotos_Cartera", proy_eliminar)):
+                        shutil.rmtree(os.path.join("Fotos_Cartera", proy_eliminar), ignore_errors=True)
                     st.success(f"Proyecto eliminado.")
                     st.rerun()
 
@@ -510,7 +552,6 @@ elif st.session_state.modo_app in ["Volumenes"]:
         if st.button("🚀 4. Procesar y Calcular Cubicaje Final", type="primary", use_container_width=True):
             try:
                 res_df, metricas = calcular_cubicaje_total(df_calculado)
-                # Calcular Masa Acumulada
                 if 'Volumen Neto (m³)' in res_df.columns:
                     res_df['Masa Acumulada (m³)'] = res_df['Volumen Neto (m³)'].cumsum()
                 else:
@@ -536,7 +577,6 @@ elif st.session_state.modo_app in ["Volumenes"]:
         st.subheader("📋 Cuadro de Movimiento de Tierras (Cubicaje)")
         st.dataframe(df_vol_final.style.format("{:.3f}"), use_container_width=True)
         
-        # === DIAGRAMA DE MASAS ===
         st.markdown("---")
         st.subheader("📈 Diagrama de Masas (Curva Masa)")
         fig_masa = go.Figure()
@@ -544,49 +584,41 @@ elif st.session_state.modo_app in ["Volumenes"]:
         fig_masa.update_layout(xaxis_title='Abscisa (Distancia en K)', yaxis_title='Volumen Neto Acumulado (m³)', height=450, plot_bgcolor='rgba(245, 245, 245, 0.8)')
         st.plotly_chart(fig_masa, use_container_width=True)
         
-        # === SECCIONES TRANSVERSALES ===
         st.markdown("---")
         st.subheader("📐 Visor de Perfiles Transversales")
         abs_plot = st.selectbox("Seleccione Abscisa a Visualizar:", df_calculado['Abscisa (K)'].unique())
         df_plot = df_calculado[df_calculado['Abscisa (K)'] == abs_plot].copy().dropna(subset=['Cota Terreno (m)', 'Cota Diseño (m)']).sort_values(by='Distancia Eje (m)').reset_index(drop=True)
         
         if not df_plot.empty:
-            fig_visual = crear_figura_seccion(df_plot, abs_plot)
+            fig_visual = crear_figura_seccion_plotly(df_plot, abs_plot)
             fig_visual.update_layout(height=550)
             st.plotly_chart(fig_visual, use_container_width=True)
             
-        # === EXPORTACIÓN LATEX (CON CACHÉ INTEGRADO DE LOS DATAFRAMES) ===
         st.markdown("---")
         with st.expander("📥 Exportar Memorias Matemáticas y Planos (PDF / LaTeX)", expanded=True):
             st.info("💡 El motor LaTeX redactará el informe incluyendo la Curva Masa y el dictamen técnico. Si activa la casilla inferior, se renderizarán todas las secciones en grillas (Bottom-Up).")
-            imprimir_secciones = st.checkbox("Generar anexo gráfico con todas las Secciones Transversales (Aumenta el tiempo de compilación)", value=True)
+            imprimir_secciones = st.checkbox("Generar anexo gráfico con todas las Secciones Transversales", value=True)
             
             if st.button("🔨 Construir y Compilar Documento Oficial", type="primary", use_container_width=True, key="btn_vol"):
-                with st.spinner("Construyendo gráficas y ejecutando motor LaTeX..."):
+                with st.spinner("Construyendo gráficas y ejecutando motor LaTeX... (Matplotlib Backend)"):
                     os.makedirs("Reportes_PDF", exist_ok=True)
                     ruta_masa = "Reportes_PDF/Curva_Masa.png"
-                    try:
-                        fig_masa.write_image(ruta_masa, width=1200, height=500, scale=2)
-                    except Exception:
-                        ruta_masa = None
+                    
+                    # Generación Ultrarrápida con Matplotlib
+                    guardar_imagen_masa_plt(df_vol_final, ruta_masa)
                     
                     paths_sec = []
                     if imprimir_secciones:
                         for a_val in sorted(df_calculado['Abscisa (K)'].unique()):
                             df_p = df_calculado[df_calculado['Abscisa (K)'] == a_val].copy().dropna(subset=['Cota Terreno (m)', 'Cota Diseño (m)']).sort_values('Distancia Eje (m)')
                             if not df_p.empty:
-                                f_sec = crear_figura_seccion(df_p, a_val)
                                 ruta_s = f"Reportes_PDF/Sec_K{a_val:.3f}.png"
-                                try:
-                                    f_sec.write_image(ruta_s, width=800, height=450, scale=1.5)
-                                    paths_sec.append((a_val, ruta_s))
-                                except Exception:
-                                    pass
+                                guardar_seccion_plt(df_p, a_val, ruta_s)
+                                paths_sec.append((a_val, ruta_s))
                     
                     autores = ["Kevin Stiven Cubillos Ramirez", "Sergio Eduardo Barbosa Torres"]
                     tutor = "Ing. Edgar Ladino"
                     
-                    # Llamamos a generar el informe sin convertir DataFrames a texto
                     tex_vol = generar_reporte_volumenes_latex(df_vol_final, met, autores, tutor, path_masas=ruta_masa, paths_secciones=paths_sec)
                     pdf_bytes, pdf_path, debug_msg = compilar_latex_a_pdf(tex_vol, output_dir="Reportes_PDF", filename=f"Cubicaje_{st.session_state.get('proyecto_actual')}")
                     
@@ -594,7 +626,6 @@ elif st.session_state.modo_app in ["Volumenes"]:
                     st.session_state.vol_tex_code = tex_vol
                     st.session_state.vol_debug_msg = debug_msg
             
-            # VISUALIZACIÓN DEL RESULTADO
             if st.session_state.get('vol_pdf_bytes'):
                 st.success("✅ ¡El documento PDF fue ensamblado exitosamente!")
                 b64_pdf = base64.b64encode(st.session_state.vol_pdf_bytes).decode('utf-8')
@@ -605,7 +636,6 @@ elif st.session_state.modo_app in ["Volumenes"]:
             elif st.session_state.get('vol_tex_code'):
                 st.warning(f"⚠️ Falló la compilación del PDF por falta de TeX Live local. Diagnóstico:\n{st.session_state.vol_debug_msg}")
                 st.download_button("📄 Descargar Código LaTeX (.TEX)", st.session_state.vol_tex_code, f"Cubicaje_{st.session_state.get('proyecto_actual')}.tex", "text/plain", use_container_width=True)
-
 
 # ------------------ MÓDULOS DE NIVELACIÓN NORMAL ------------------
 elif st.session_state.modo_app in ["Niv_Cerrada", "Niv_Abierta"]:
@@ -705,10 +735,7 @@ elif st.session_state.modo_app in ["Niv_Cerrada", "Niv_Abierta"]:
                 with st.spinner("Construyendo gráficas y ejecutando motor LaTeX..."):
                     os.makedirs("Reportes_PDF", exist_ok=True)
                     ruta_perfil = "Reportes_PDF/Perfil_Nivelacion.png"
-                    try:
-                        fig_perf.write_image(ruta_perfil, width=1200, height=500, scale=2)
-                    except Exception:
-                        ruta_perfil = None
+                    guardar_perfil_altimetria_plt(st.session_state.df_niv_calc, ruta_perfil)
                     
                     dir_fotos_proy = os.path.join("Fotos_Nivelacion", st.session_state.get("proyecto_actual") or "Sin_Proyecto")
                     fotos_tomadas = glob.glob(f"{dir_fotos_proy}/*/*.jpg")
