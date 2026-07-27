@@ -24,7 +24,7 @@ import glob
 from motor_v2_5 import poligonal_3d_v2_5, decimal_a_dms
 from motor_abierta import poligonal_abierta_control
 from motor_altimetria import calcular_cartera_nivelacion
-from motor_proyecciones_2 import MotorCoordenadasIGAC_V2
+from motor_proyecciones import MotorCoordenadasIGAC_V2
 from motor_volumenes import generar_malla_vacia, calcular_cotas_seccion, calcular_cubicaje_total
 from motor_grafico_poligonal import generar_plano_profesional
 from motor_exportacion import generar_kml, generar_dxf, generar_shp_zip
