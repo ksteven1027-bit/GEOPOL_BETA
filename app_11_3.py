@@ -1,9 +1,9 @@
 # ===================================================================
-# GEOPORTAL WEB - VERSIÓN 11.3 (OPTIMIZACIÓN EXTREMA DE RENDERIZADO)
+# GEOPORTAL WEB - VERSIÓN 11.4 (FIX DE CACHÉ Y RENDERIZADO ESTABLE)
 # Novedades: 
-# 1. Caché inteligente (@st.cache_data) para evitar regenerar PDFs.
-# 2. Control de tiempo límite (Timeout) para evitar congelamientos en Kaleido.
-# 3. Optimización en la creación de imágenes para el reporte de Volúmenes.
+# 1. Corrección del error pd.read_json en el servidor de Streamlit Cloud.
+# 2. Simplificación del motor de caché para evitar dependencias serializadas.
+# 3. Mantenimiento del diagrama de masas interactivo y grillas Bottom-Up.
 # ===================================================================
 import streamlit as st
 import pandas as pd
@@ -24,7 +24,7 @@ import glob
 from motor_v2_5 import poligonal_3d_v2_5, decimal_a_dms
 from motor_abierta import poligonal_abierta_control
 from motor_altimetria import calcular_cartera_nivelacion
-from motor_proyecciones import MotorCoordenadasIGAC_V2
+from motor_proyecciones_2 import MotorCoordenadasIGAC_V2
 from motor_volumenes import generar_malla_vacia, calcular_cotas_seccion, calcular_cubicaje_total
 from motor_grafico_poligonal import generar_plano_profesional
 from motor_exportacion import generar_kml, generar_dxf, generar_shp_zip
@@ -74,54 +74,6 @@ df_plantilla_niv_abierta = pd.DataFrame({
 # ===================================================================
 # FUNCIONES AUXILIARES PARA GRÁFICOS Y OPTIMIZACIÓN
 # ===================================================================
-
-# MEMORIA CACHÉ: Solo regeneramos imágenes y el PDF si df_calculado cambia
-@st.cache_data(show_spinner=False)
-def compilar_informe_volumenes_cache(df_calculado_json, met, p_actual, imprimir_secciones):
-    """
-    Función envuelta en caché para que las escrituras de disco duro (imágenes y PDF)
-    solo sucedan cuando realmente cambias los datos.
-    Recibe df_calculado_json para poder usar el hash del caché correctamente.
-    """
-    df_calc = pd.read_json(df_calculado_json)
-    
-    os.makedirs("Reportes_PDF", exist_ok=True)
-    
-    # Diagrama de Masas
-    fig_masa = go.Figure()
-    fig_masa.add_trace(go.Scatter(x=df_calc['Abscisa (K)'], y=df_calc['Masa Acumulada (m³)'], mode='lines+markers', fill='tozeroy', line=dict(color='#0D47A1', width=3), marker=dict(size=8, color='#FF8C00')))
-    fig_masa.update_layout(xaxis_title='Abscisa (K)', yaxis_title='Volumen Neto (m³)', height=450, plot_bgcolor='rgba(245, 245, 245, 0.8)')
-    
-    ruta_masa = "Reportes_PDF/Curva_Masa.png"
-    try:
-        fig_masa.write_image(ruta_masa, width=1200, height=500, scale=2)
-    except Exception as e:
-        ruta_masa = None
-
-    # Secciones Transversales
-    paths_sec = []
-    if imprimir_secciones:
-        for a_val in sorted(df_calc['Abscisa (K)'].unique()):
-            df_p = df_calc[df_calc['Abscisa (K)'] == a_val].copy().dropna(subset=['Cota Terreno (m)', 'Cota Diseño (m)']).sort_values('Distancia Eje (m)')
-            if not df_p.empty:
-                f_sec = crear_figura_seccion(df_p, a_val)
-                ruta_s = f"Reportes_PDF/Sec_K{a_val:.3f}.png"
-                try:
-                    f_sec.write_image(ruta_s, width=800, height=450, scale=1.5)
-                    paths_sec.append((a_val, ruta_s))
-                except Exception:
-                    pass
-
-    # Generación de LaTeX
-    autores = ["Kevin Stiven Cubillos Ramirez", "Sergio Eduardo Barbosa Torres"]
-    tutor = "Ing. Edgar Ladino"
-    tex_vol = generar_reporte_volumenes_latex(df_calc, met, autores, tutor, path_masas=ruta_masa, paths_secciones=paths_sec)
-    
-    # Compilación
-    pdf_bytes, pdf_path, debug_msg = compilar_latex_a_pdf(tex_vol, output_dir="Reportes_PDF", filename=f"Cubicaje_{p_actual}")
-    
-    return pdf_bytes, tex_vol, debug_msg
-
 
 def crear_figura_seccion(df_plot, abs_plot):
     """Genera la figura Plotly de una sección transversal para exportación."""
@@ -558,6 +510,7 @@ elif st.session_state.modo_app in ["Volumenes"]:
         if st.button("🚀 4. Procesar y Calcular Cubicaje Final", type="primary", use_container_width=True):
             try:
                 res_df, metricas = calcular_cubicaje_total(df_calculado)
+                # Calcular Masa Acumulada
                 if 'Volumen Neto (m³)' in res_df.columns:
                     res_df['Masa Acumulada (m³)'] = res_df['Volumen Neto (m³)'].cumsum()
                 else:
@@ -583,6 +536,7 @@ elif st.session_state.modo_app in ["Volumenes"]:
         st.subheader("📋 Cuadro de Movimiento de Tierras (Cubicaje)")
         st.dataframe(df_vol_final.style.format("{:.3f}"), use_container_width=True)
         
+        # === DIAGRAMA DE MASAS ===
         st.markdown("---")
         st.subheader("📈 Diagrama de Masas (Curva Masa)")
         fig_masa = go.Figure()
@@ -590,6 +544,7 @@ elif st.session_state.modo_app in ["Volumenes"]:
         fig_masa.update_layout(xaxis_title='Abscisa (Distancia en K)', yaxis_title='Volumen Neto Acumulado (m³)', height=450, plot_bgcolor='rgba(245, 245, 245, 0.8)')
         st.plotly_chart(fig_masa, use_container_width=True)
         
+        # === SECCIONES TRANSVERSALES ===
         st.markdown("---")
         st.subheader("📐 Visor de Perfiles Transversales")
         abs_plot = st.selectbox("Seleccione Abscisa a Visualizar:", df_calculado['Abscisa (K)'].unique())
@@ -600,40 +555,7 @@ elif st.session_state.modo_app in ["Volumenes"]:
             fig_visual.update_layout(height=550)
             st.plotly_chart(fig_visual, use_container_width=True)
             
-        @st.cache_data(show_spinner=False)
-        def cachear_pdf_volumenes(df_calc_json, df_vol_json, met, p_actual, imprimir_secciones):
-            df_calculado_interno = pd.read_json(df_calc_json)
-            df_vol_interno = pd.read_json(df_vol_json)
-            
-            os.makedirs("Reportes_PDF", exist_ok=True)
-            ruta_masa = "Reportes_PDF/Curva_Masa.png"
-            fig_masa_interna = go.Figure()
-            fig_masa_interna.add_trace(go.Scatter(x=df_vol_interno['Abscisa (K)'], y=df_vol_interno['Masa Acumulada (m³)'], mode='lines+markers', fill='tozeroy', line=dict(color='#0D47A1', width=3), marker=dict(size=8, color='#FF8C00')))
-            fig_masa_interna.update_layout(xaxis_title='Abscisa', yaxis_title='Volumen Neto (m³)', height=450, plot_bgcolor='rgba(245, 245, 245, 0.8)')
-            try:
-                fig_masa_interna.write_image(ruta_masa, width=1200, height=500, scale=2)
-            except Exception:
-                ruta_masa = None
-
-            paths_sec = []
-            if imprimir_secciones:
-                for a_val in sorted(df_calculado_interno['Abscisa (K)'].unique()):
-                    df_p = df_calculado_interno[df_calculado_interno['Abscisa (K)'] == a_val].copy().dropna(subset=['Cota Terreno (m)', 'Cota Diseño (m)']).sort_values('Distancia Eje (m)')
-                    if not df_p.empty:
-                        f_sec = crear_figura_seccion(df_p, a_val)
-                        ruta_s = f"Reportes_PDF/Sec_K{a_val:.3f}.png"
-                        try:
-                            f_sec.write_image(ruta_s, width=800, height=450, scale=1.5)
-                            paths_sec.append((a_val, ruta_s))
-                        except Exception:
-                            pass
-            
-            autores = ["Kevin Stiven Cubillos Ramirez", "Sergio Eduardo Barbosa Torres"]
-            tutor = "Ing. Edgar Ladino"
-            tex_vol = generar_reporte_volumenes_latex(df_vol_interno, met, autores, tutor, path_masas=ruta_masa, paths_secciones=paths_sec)
-            pdf_bytes, pdf_path, debug_msg = compilar_latex_a_pdf(tex_vol, output_dir="Reportes_PDF", filename=f"Cubicaje_{p_actual}")
-            return pdf_bytes, tex_vol, debug_msg
-
+        # === EXPORTACIÓN LATEX (CON CACHÉ INTEGRADO DE LOS DATAFRAMES) ===
         st.markdown("---")
         with st.expander("📥 Exportar Memorias Matemáticas y Planos (PDF / LaTeX)", expanded=True):
             st.info("💡 El motor LaTeX redactará el informe incluyendo la Curva Masa y el dictamen técnico. Si activa la casilla inferior, se renderizarán todas las secciones en grillas (Bottom-Up).")
@@ -641,16 +563,38 @@ elif st.session_state.modo_app in ["Volumenes"]:
             
             if st.button("🔨 Construir y Compilar Documento Oficial", type="primary", use_container_width=True, key="btn_vol"):
                 with st.spinner("Construyendo gráficas y ejecutando motor LaTeX..."):
-                    df_calc_json = df_calculado.to_json()
-                    df_vol_json = df_vol_final.to_json()
-                    p_act = st.session_state.get('proyecto_actual')
+                    os.makedirs("Reportes_PDF", exist_ok=True)
+                    ruta_masa = "Reportes_PDF/Curva_Masa.png"
+                    try:
+                        fig_masa.write_image(ruta_masa, width=1200, height=500, scale=2)
+                    except Exception:
+                        ruta_masa = None
                     
-                    pdf_bytes, tex_vol, debug_msg = cachear_pdf_volumenes(df_calc_json, df_vol_json, met, p_act, imprimir_secciones)
+                    paths_sec = []
+                    if imprimir_secciones:
+                        for a_val in sorted(df_calculado['Abscisa (K)'].unique()):
+                            df_p = df_calculado[df_calculado['Abscisa (K)'] == a_val].copy().dropna(subset=['Cota Terreno (m)', 'Cota Diseño (m)']).sort_values('Distancia Eje (m)')
+                            if not df_p.empty:
+                                f_sec = crear_figura_seccion(df_p, a_val)
+                                ruta_s = f"Reportes_PDF/Sec_K{a_val:.3f}.png"
+                                try:
+                                    f_sec.write_image(ruta_s, width=800, height=450, scale=1.5)
+                                    paths_sec.append((a_val, ruta_s))
+                                except Exception:
+                                    pass
+                    
+                    autores = ["Kevin Stiven Cubillos Ramirez", "Sergio Eduardo Barbosa Torres"]
+                    tutor = "Ing. Edgar Ladino"
+                    
+                    # Llamamos a generar el informe sin convertir DataFrames a texto
+                    tex_vol = generar_reporte_volumenes_latex(df_vol_final, met, autores, tutor, path_masas=ruta_masa, paths_secciones=paths_sec)
+                    pdf_bytes, pdf_path, debug_msg = compilar_latex_a_pdf(tex_vol, output_dir="Reportes_PDF", filename=f"Cubicaje_{st.session_state.get('proyecto_actual')}")
                     
                     st.session_state.vol_pdf_bytes = pdf_bytes
                     st.session_state.vol_tex_code = tex_vol
                     st.session_state.vol_debug_msg = debug_msg
             
+            # VISUALIZACIÓN DEL RESULTADO
             if st.session_state.get('vol_pdf_bytes'):
                 st.success("✅ ¡El documento PDF fue ensamblado exitosamente!")
                 b64_pdf = base64.b64encode(st.session_state.vol_pdf_bytes).decode('utf-8')
@@ -659,8 +603,9 @@ elif st.session_state.modo_app in ["Volumenes"]:
                 col1.download_button("📄 Descargar PDF Oficial", st.session_state.vol_pdf_bytes, f"Cubicaje_{st.session_state.get('proyecto_actual')}.pdf", "application/pdf", use_container_width=True)
                 col2.download_button("📄 Descargar Código LaTeX (.TEX)", st.session_state.vol_tex_code, f"Cubicaje_{st.session_state.get('proyecto_actual')}.tex", "text/plain", use_container_width=True)
             elif st.session_state.get('vol_tex_code'):
-                st.warning(f"⚠️ Falló la compilación del PDF. Diagnóstico:\n{st.session_state.vol_debug_msg}")
+                st.warning(f"⚠️ Falló la compilación del PDF por falta de TeX Live local. Diagnóstico:\n{st.session_state.vol_debug_msg}")
                 st.download_button("📄 Descargar Código LaTeX (.TEX)", st.session_state.vol_tex_code, f"Cubicaje_{st.session_state.get('proyecto_actual')}.tex", "text/plain", use_container_width=True)
+
 
 # ------------------ MÓDULOS DE NIVELACIÓN NORMAL ------------------
 elif st.session_state.modo_app in ["Niv_Cerrada", "Niv_Abierta"]:
@@ -751,30 +696,6 @@ elif st.session_state.modo_app in ["Niv_Cerrada", "Niv_Abierta"]:
         fig_perf.add_trace(go.Scatter(x=df_plot['Estaca / Punto'], y=df_plot['Cota Ajustada'], mode='lines+markers', line=dict(color='#FF8C00', width=3), marker=dict(size=10)))
         fig_perf.update_layout(xaxis_title='Estaciones / Puntos Visados', yaxis_title='Elevación Ajustada (msnm)', height=450)
         st.plotly_chart(fig_perf, use_container_width=True)
-        
-        # CACHE DE ALTIMETRIA
-        @st.cache_data(show_spinner=False)
-        def cachear_pdf_altimetria(df_niv_json, met, p_actual, tipo_niv, fotos_paths):
-            df_niv_interno = pd.read_json(df_niv_json)
-            
-            os.makedirs("Reportes_PDF", exist_ok=True)
-            ruta_perfil = "Reportes_PDF/Perfil_Nivelacion.png"
-            
-            fig_p = go.Figure()
-            fig_p.add_trace(go.Scatter(x=df_niv_interno['Estaca / Punto'], y=df_niv_interno['Cota Ajustada'], mode='lines+markers', line=dict(color='#FF8C00', width=3), marker=dict(size=10)))
-            fig_p.update_layout(xaxis_title='Estaciones / Puntos', yaxis_title='Elevación (msnm)', height=450)
-            try:
-                fig_p.write_image(ruta_perfil, width=1200, height=500, scale=2)
-            except Exception:
-                ruta_perfil = None
-                
-            autores = ["Kevin Stiven Cubillos Ramirez", "Sergio Eduardo Barbosa Torres"]
-            tutor = "Ing. Edgar Ladino"
-            
-            tex_niv = generar_reporte_nivelacion_latex(df_niv_interno, met, tipo_niv, autores, tutor, path_grafico=ruta_perfil, fotos_paths=fotos_paths)
-            pdf_bytes, pdf_path, debug_msg = compilar_latex_a_pdf(tex_niv, output_dir="Reportes_PDF", filename=f"Nivelacion_{p_actual}")
-            
-            return pdf_bytes, tex_niv, debug_msg
 
         st.markdown("---")
         with st.expander("📥 Exportar Memorias Matemáticas y Planos (PDF / LaTeX)", expanded=True):
@@ -782,14 +703,22 @@ elif st.session_state.modo_app in ["Niv_Cerrada", "Niv_Abierta"]:
             
             if st.button("🔨 Construir y Compilar Documento Oficial", type="primary", use_container_width=True, key="btn_niv"):
                 with st.spinner("Construyendo gráficas y ejecutando motor LaTeX..."):
+                    os.makedirs("Reportes_PDF", exist_ok=True)
+                    ruta_perfil = "Reportes_PDF/Perfil_Nivelacion.png"
+                    try:
+                        fig_perf.write_image(ruta_perfil, width=1200, height=500, scale=2)
+                    except Exception:
+                        ruta_perfil = None
+                    
                     dir_fotos_proy = os.path.join("Fotos_Nivelacion", st.session_state.get("proyecto_actual") or "Sin_Proyecto")
                     fotos_tomadas = glob.glob(f"{dir_fotos_proy}/*/*.jpg")
+                    
+                    autores = ["Kevin Stiven Cubillos Ramirez", "Sergio Eduardo Barbosa Torres"]
+                    tutor = "Ing. Edgar Ladino"
                     tipo_niv = "Nivelación Cerrada" if st.session_state.modo_app == "Niv_Cerrada" else "Nivelación Abierta con Control"
-                    p_act = st.session_state.get('proyecto_actual') or 'Altimetria'
                     
-                    df_niv_json = st.session_state.df_niv_calc.to_json()
-                    
-                    pdf_bytes, tex_niv, debug_msg = cachear_pdf_altimetria(df_niv_json, met, p_act, tipo_niv, fotos_tomadas)
+                    tex_niv = generar_reporte_nivelacion_latex(st.session_state.df_niv_calc, met, tipo_niv, autores, tutor, path_grafico=ruta_perfil, fotos_paths=fotos_tomadas)
+                    pdf_bytes, pdf_path, debug_msg = compilar_latex_a_pdf(tex_niv, output_dir="Reportes_PDF", filename=f"Nivelacion_{st.session_state.get('proyecto_actual') or 'Altimetria'}")
                     
                     st.session_state.niv_pdf_bytes = pdf_bytes
                     st.session_state.niv_tex_code = tex_niv
@@ -1022,16 +951,6 @@ elif st.session_state.modo_app in ["Cerrada", "Abierta"]:
             st.error(f"⚠️ Hubo un problema al generar el plano CAD: {e}")
             ruta_plano_export = None
 
-        @st.cache_data(show_spinner=False)
-        def cachear_pdf_poli(df_campo_json, df_ajuste_json, met, p_actual, ruta_p, f_tomadas, t_app):
-            df_campo_i = pd.read_json(df_campo_json)
-            df_ajuste_i = pd.read_json(df_ajuste_json)
-            autores = ["Kevin Stiven Cubillos Ramirez", "Sergio Eduardo Barbosa Torres"]
-            tutor = "Ing. Edgar Ladino"
-            data_tex = generar_reporte_poligonal_latex(df_campo_i, df_ajuste_i, met, t_app, autores, tutor, path_grafico=ruta_p, fotos_paths=f_tomadas)
-            pdf_bytes, pdf_path, debug_msg = compilar_latex_a_pdf(data_tex, output_dir="Reportes_PDF", filename=f"Reporte_{p_actual}")
-            return pdf_bytes, data_tex, debug_msg
-
         with st.expander("📥 Exportar Datos de Levantamiento (CAD / GIS / Reportes)", expanded=True):
             st.markdown("Seleccione el formato oficial de descarga para sus programas de diseño de oficina:")
             col_kml, col_dxf, col_shp, col_tex = st.columns(4)
@@ -1045,11 +964,16 @@ elif st.session_state.modo_app in ["Cerrada", "Abierta"]:
                 with st.spinner("Compilando Documento LaTeX..."):
                     dir_fotos_proy = os.path.join("Fotos_Cartera", st.session_state.get("proyecto_actual") or "Sin_Proyecto")
                     fotos_tomadas = glob.glob(f"{dir_fotos_proy}/*/*.jpg")
-                    df_c_json = df_campo.to_json()
-                    df_a_json = df_ajuste.to_json()
-                    p_act = st.session_state.get('proyecto_actual') or 'Poli'
                     
-                    pdf_bytes, data_tex, debug_msg = cachear_pdf_poli(df_c_json, df_a_json, met, p_act, ruta_plano_export, fotos_tomadas, st.session_state.modo_app)
+                    autores = ["Kevin Stiven Cubillos Ramirez", "Sergio Eduardo Barbosa Torres"]
+                    tutor = "Ing. Edgar Ladino"
+                    
+                    data_tex = generar_reporte_poligonal_latex(
+                        df_campo, df_ajuste, met, st.session_state.modo_app, autores, tutor,
+                        path_grafico=ruta_plano_export, fotos_paths=fotos_tomadas
+                    )
+                    
+                    pdf_bytes, pdf_path, debug_msg = compilar_latex_a_pdf(data_tex, output_dir="Reportes_PDF", filename=f"Reporte_{st.session_state.get('proyecto_actual') or 'Poli'}")
                     
                     st.session_state.poli_pdf_bytes = pdf_bytes
                     st.session_state.poli_tex_code = data_tex
