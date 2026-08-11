@@ -676,13 +676,13 @@ elif st.session_state.modo_app == "Menu_Principal":
         mostrar_icono("planimetria.png", "", width=180)
         if st.button("Planimetría", use_container_width=True): st.session_state.modo_app = "Menu_Poligonales"; st.rerun()
     with col_disc2:
-        mostrar_icono("altimetria.png", "", width=180)
+        mostrar_icono("altimetria.png", "", width=330)
         if st.button("Altimetría", use_container_width=True): st.session_state.modo_app = "Menu_Altimetria"; st.rerun()
     with col_disc3:
         mostrar_icono("nube_puntos.png", "", width=180)
         if st.button("Nube de Puntos", use_container_width=True): st.session_state.modo_app = "Nube_Puntos"; st.rerun()
     with col_disc4:
-        mostrar_icono("volumenes.png", "", width=180)
+        mostrar_icono("diseño.png", "", width=330)
         if st.button("Diseño Vial", use_container_width=True): st.session_state.modo_app = "Diseno_Vias"; st.rerun()
 
 elif st.session_state.modo_app == "Menu_Poligonales":
@@ -702,7 +702,7 @@ elif st.session_state.modo_app == "Menu_Altimetria":
         mostrar_icono("niv_cerrada.png", "", width=180)
         if st.button("Nivelación de Circuito Cerrado", use_container_width=True): st.session_state.modo_app = "Niv_Cerrada"; st.rerun()
     with colB:
-        mostrar_icono("niv_abierta.png", "", width=180)
+        mostrar_icono("niv_abierta.png", "", width=358)
         if st.button("Nivelación de Circuito Abierto", use_container_width=True): st.session_state.modo_app = "Niv_Abierta"; st.rerun()
     with colC:
         mostrar_icono("volumenes.png", "", width=180)
