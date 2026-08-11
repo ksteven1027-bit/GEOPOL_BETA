@@ -599,15 +599,50 @@ if st.session_state.modo_app == "Inicio":
                     st.rerun()
 
     with tab_sobre:
-        col_txt, col_img = st.columns([2, 1])
-        with col_txt:
-            st.markdown("### Arquitectura del Geoportal Web")
-            st.write("El procesamiento de datos topográficos en gabinete representa históricamente un segmento crítico y susceptible a desviaciones sistemáticas. GeoPol Web se consolida como una solución integral que estandariza y automatiza estos procedimientos operativos.")
-            st.markdown("### Características Técnicas")
-            st.markdown("- Motor Matemático 2D y Renderizado Planimétrico Automatizado.\n- Interpolación de Superficies y Diseño Civil 3D en Tiempo Real.\n- Generación Niva de Reportes Académicos e Ingeniería en formato LaTeX.\n- Exportación e Interoperabilidad hacia Entornos GIS y CAD Industriales.")
-        with col_img:
-            mostrar_icono("planimetria.png", "", width=250, shadow=False)
-            mostrar_icono("volumenes.png", "", width=250, shadow=False)
+        st.markdown("### Arquitectura y Fundamentos de GeoPol Web")
+        st.write("El procesamiento de datos topográficos y de diseño vial en gabinete representa históricamente un segmento crítico, susceptible a desviaciones sistemáticas y tiempos de ejecución prolongados. GeoPol Web nace como una plataforma analítica web orientada a democratizar, estandarizar y automatizar estos procedimientos bajo estrictos rigores matemáticos y geométricos.")
+        
+        st.markdown("---")
+        st.markdown("#### Módulos de Procesamiento y Capacidades Core")
+        st.write("Seleccione el título de cada módulo para desplegar su descripción técnica detallada:")
+        
+        with st.expander("Módulo de Redes de Control Planimétrico (Poligonales)"):
+            st.markdown("""
+            - **Cálculo de Poligonales:** Ajuste y compensación de errores angulares y lineales para circuitos cerrados y líneas abiertas.
+            - **Geodesia y Proyecciones:** Integración nativa con los sistemas de referencia del IGAC (Orígenes Magna-Sirgas).
+            - **Interoperabilidad:** Generación planigráfica automatizada con exportación directa a entornos CAD (.DXF), GIS (.SHP) y Google Earth (.KML).
+            """)
+            
+        with st.expander("Módulo de Altimetría y Control Vertical"):
+            st.markdown("""
+            - **Nivelación Geométrica:** Análisis de carteras de campo para circuitos cerrados y nivelaciones con control (amarre).
+            - **Compensación Matemática:** Distribución proporcional de errores de cierre altimétrico.
+            - **Perfiles Topográficos:** Visualización longitudinal interactiva de las cotas ajustadas sobre el nivel del mar.
+            """)
+            
+        with st.expander("Módulo de Modelado Digital de Terreno (DTM)"):
+            st.markdown("""
+            - **Gestión de Datos Masivos:** Importación y consolidación en memoria de Nubes de Puntos multicapa (.CSV, .TXT).
+            - **Triangulación Espacial:** Motor de interpolación vectorial basado en el algoritmo de Delaunay (SciPy) con restricción de aristas a 30 metros para evitar falsas proyecciones.
+            - **Superficies TIN:** Extracción de curvas de nivel y renderizado raster sobre mapas base dinámicos globales.
+            """)
+            
+        with st.expander("Módulo de Diseño Geométrico de Vías (3D)"):
+            st.markdown("""
+            - **Alineamiento Horizontal:** Trazado interactivo de tangentes, curvas circulares, cálculo de peraltes empíricos y deflexiones.
+            - **Alineamiento Vertical (Rasante):** Evaluación de gradientes y validación automatizada de normatividad de pendientes (Ref: INVIAS).
+            - **Movimiento de Tierras:** Modelado transversal con cálculo riguroso de volúmenes, achurado de áreas (Corte/Relleno) y generación de curva masa.
+            """)
+            
+        with st.expander("Motor de Informes y Generación Documental (LaTeX)"):
+            st.markdown("""
+            - **Automatización Documental:** Al finalizar cualquier flujo de trabajo, el sistema invoca un servidor LaTeX local para ensamblar y compilar Memorias de Cálculo en formato PDF de forma autónoma.
+            - **Estándar de Ingeniería:** Los documentos generados cumplen con los requerimientos técnicos de interventoría para obras civiles, detallando metodologías, fórmulas aplicadas, cuadros de tolerancias y planimetría final.
+            """)
+
+        st.markdown("---")
+        st.markdown("#### Infraestructura Tecnológica")
+        st.info("Base algorítmica desarrollada estructuralmente en Python (NumPy, Pandas, SciPy). El renderizado y la visualización analítica de datos espaciales son impulsados por los motores gráficos Plotly, Folium y Matplotlib.")
 
     with tab_equipo:
         st.markdown("<h3 style='text-align:center;'>Dirección y Estructuración del Proyecto</h3><br>", unsafe_allow_html=True)
