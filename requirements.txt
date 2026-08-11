@@ -10,3 +10,4 @@ ezdxf
 pyshp
 matplotlib
 Pillow
+scipy
