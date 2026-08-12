@@ -119,58 +119,167 @@ def _sanear_pis(df_pis):
     return df
 
 
-def peraltes_por_abscisa(abscisas, df_reporte, bombeo_izq=-2.0, bombeo_der=-2.0,
-                         long_transicion=30.0):
-    """
-    Devuelve la pendiente transversal (%) de cada costado para cada abscisa.
+# ---------------------------------------------------------------
+# TRANSICIÓN DEL PERALTE - Formulación INVIAS 2008 (numeral 3.2)
+#
+#            a · bw · (ef - ei)
+#      L =  --------------------
+#                   Δs
+#
+#   a  = ancho de calzada que gira = w · n
+#   w  = ancho de carril (m)
+#   n  = número de carriles que giran
+#   bw = factor de ajuste por número de carriles girados
+#   Δs = pendiente relativa máxima de la rampa de peraltes (%)
+#
+#   N (longitud de aplanamiento) = L · bombeo / e
+#
+#   Reparto: 70% de L en recta y 30% dentro de la curva, de modo que en
+#   el PC y el PT el peralte vale 0.70·e.
+# ---------------------------------------------------------------
 
-    En recta rige el bombeo. Entre PC y PT rige el peralte pleno de la curva:
-    toda la sección bascula hacia el interior, de modo que el borde exterior
-    sube (+e) y el interior baja (-e) respecto del eje. Entre ambos estados se
-    interpola linealmente a lo largo de 'long_transicion' metros antes del PC y
-    después del PT (desarrollo del peralte).
+# Tabla: pendiente relativa máxima de la rampa de peraltes (%) vs Velocidad Específica
+_V_RAMPA = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130]
+_DS_RAMPA = [1.36, 1.28, 0.96, 0.77, 0.60, 0.55, 0.50, 0.47, 0.44, 0.41, 0.38, 0.38]
+
+# Tabla: factor de ajuste bw según número de carriles que giran
+_N_CARRILES = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
+_BW_FACTOR = [1.00, 0.83, 0.75, 0.70, 0.67, 0.64]
+
+
+def pendiente_relativa_rampa(v_especifica):
+    """Δs máxima (%) de la rampa de peraltes según la velocidad específica."""
+    return float(np.interp(float(v_especifica), _V_RAMPA, _DS_RAMPA))
+
+
+def factor_ajuste_carriles(n_carriles):
+    """Factor bw de ajuste por número de carriles que giran."""
+    return float(np.interp(float(n_carriles), _N_CARRILES, _BW_FACTOR))
+
+
+def longitud_transicion_peralte(peralte, ancho_carril=3.65, n_carriles_giran=1.0,
+                                v_especifica=60, bombeo=2.0):
+    """
+    Longitud de transición (L) y de aplanamiento (N) según INVIAS 2008.
+    Devuelve un diccionario con todos los parámetros intermedios para que
+    puedan mostrarse en la memoria de cálculo.
+    """
+    e = abs(float(peralte))
+    b = abs(float(bombeo))
+    a = float(ancho_carril) * float(n_carriles_giran)
+    bw = factor_ajuste_carriles(n_carriles_giran)
+    ds = pendiente_relativa_rampa(v_especifica)
+
+    L = (a * bw * e) / ds if ds > 0 else 0.0
+    N = (L * b / e) if e > 0 else 0.0
+
+    return {
+        "L": round(L, 3), "N": round(N, 3), "LT": round(L + N, 3),
+        "a": round(a, 3), "bw": round(bw, 3), "delta_s": round(ds, 3),
+        "e": round(e, 3), "bombeo": round(b, 3),
+    }
+
+
+def _rampa_borde_exterior(s, pc, pt, e, b, L, N, reparto_recta=0.70):
+    """
+    Peralte (%) del borde EXTERIOR en la abscisa s, según los puntos
+    principales A-B-C-D-E del desarrollo del peralte del manual.
+    Signo: negativo = el borde cae respecto del eje.
+    """
+    # Entrada
+    b_in = pc - reparto_recta * L      # B: borde exterior en 0%
+    a_in = b_in - N                    # A: bombeo normal
+    e_in = b_in + L                    # E: peralte pleno
+    # Salida (simétrica)
+    e_out = pt - (1.0 - reparto_recta) * L
+    b_out = e_out + L
+    a_out = b_out + N
+
+    if s < a_in or s > a_out:
+        return -b
+    if s < b_in:                       # A -> B : de -bombeo a 0
+        return -b * (b_in - s) / N if N > 0 else 0.0
+    if s <= e_in:                      # B -> E : de 0 a +e
+        return e * (s - b_in) / L if L > 0 else e
+    if s < e_out:                      # peralte pleno
+        return e
+    if s <= b_out:                     # E -> B : de +e a 0
+        return e * (b_out - s) / L if L > 0 else 0.0
+    return -b * (s - b_out) / N if N > 0 else 0.0   # B -> A : de 0 a -bombeo
+
+
+def peraltes_por_abscisa(abscisas, df_reporte, bombeo_izq=-2.0, bombeo_der=-2.0,
+                         ancho_carril=3.65, n_carriles_giran=1.0, v_diseno=60,
+                         reparto_recta=0.70, retornar_detalle=False):
+    """
+    Devuelve la pendiente transversal (%) de cada costado para cada abscisa,
+    desarrollando el peralte según la formulación INVIAS.
+
+    En recta rige el bombeo. El borde exterior asciende por la rampa hasta el
+    peralte pleno; el borde interior conserva su bombeo hasta que el exterior
+    lo iguala en magnitud, y a partir de ahí acompaña simétricamente el giro.
 
     Convención de signo: negativo = el borde cae respecto del eje.
     """
     abscisas = np.asarray(abscisas, dtype=float)
-    bombeo_izq = float(bombeo_izq)
-    bombeo_der = float(bombeo_der)
+    b_izq = abs(float(bombeo_izq))
+    b_der = abs(float(bombeo_der))
 
-    m_izq = np.full(abscisas.shape, bombeo_izq, dtype=float)
-    m_der = np.full(abscisas.shape, bombeo_der, dtype=float)
+    m_izq = np.full(abscisas.shape, -b_izq, dtype=float)
+    m_der = np.full(abscisas.shape, -b_der, dtype=float)
+    detalle = []
 
     if df_reporte is None or len(df_reporte) == 0 or "Abs_PC (m)" not in df_reporte.columns:
-        return m_izq, m_der
-
-    lt = max(float(long_transicion), 1e-6)
+        return (m_izq, m_der, pd.DataFrame(detalle)) if retornar_detalle else (m_izq, m_der)
 
     for _, r in df_reporte.iterrows():
         e = abs(float(r.get("Peralte (%)", 0.0)))
         pc = float(r["Abs_PC (m)"])
         pt = float(r["Abs_PT (m)"])
         sentido = str(r.get("Sentido", "Der"))
+        # Curva a la derecha -> el exterior es el costado izquierdo
+        exterior_es_izq = sentido.upper().startswith("D")
+        b_ext = b_izq if exterior_es_izq else b_der
+        b_int = b_der if exterior_es_izq else b_izq
 
-        # Curva a la derecha -> interior derecho: cae la derecha, sube la izquierda
-        if sentido.upper().startswith("D"):
-            e_izq, e_der = e, -e
-        else:
-            e_izq, e_der = -e, e
+        par = longitud_transicion_peralte(e, ancho_carril, n_carriles_giran, v_diseno, b_ext)
+        L, N = par["L"], par["N"]
+        if L <= 0:
+            continue
 
-        # Factor de desarrollo: 0 en recta, 1 en peralte pleno
-        factor = np.zeros(abscisas.shape, dtype=float)
-        pleno = (abscisas >= pc) & (abscisas <= pt)
-        entrada = (abscisas >= pc - lt) & (abscisas < pc)
-        salida = (abscisas > pt) & (abscisas <= pt + lt)
+        for i, s in enumerate(abscisas):
+            m_ext = _rampa_borde_exterior(s, pc, pt, e, b_ext, L, N, reparto_recta)
+            # Sólo se sobrescribe donde esta curva realmente actúa
+            if abs(m_ext + b_ext) < 1e-9:
+                continue
+            m_int = -b_int if m_ext < b_int else -m_ext
 
-        factor[pleno] = 1.0
-        factor[entrada] = (abscisas[entrada] - (pc - lt)) / lt
-        factor[salida] = ((pt + lt) - abscisas[salida]) / lt
+            if exterior_es_izq:
+                m_izq[i], m_der[i] = m_ext, m_int
+            else:
+                m_der[i], m_izq[i] = m_ext, m_int
 
-        afectadas = factor > 0
-        m_izq[afectadas] = bombeo_izq + factor[afectadas] * (e_izq - bombeo_izq)
-        m_der[afectadas] = bombeo_der + factor[afectadas] * (e_der - bombeo_der)
+        detalle.append({
+            "Vértice (PI)": r.get("Vértice (PI)", ""),
+            "Sentido": sentido,
+            "Peralte e (%)": par["e"],
+            "Bombeo (%)": par["bombeo"],
+            "a = w·n (m)": par["a"],
+            "bw": par["bw"],
+            "Δs (%)": par["delta_s"],
+            "Long. Transición L (m)": par["L"],
+            "Long. Aplanamiento N (m)": par["N"],
+            "Desarrollo total LT (m)": par["LT"],
+            "Abscisa A entrada": formato_abscisa(max(pc - reparto_recta * L - N, 0.0)),
+            "Abscisa E entrada": formato_abscisa(pc + (1 - reparto_recta) * L),
+            "Abscisa E salida": formato_abscisa(pt - (1 - reparto_recta) * L),
+            "Abscisa A salida": formato_abscisa(pt + reparto_recta * L + N),
+        })
 
-    return np.round(m_izq, 3), np.round(m_der, 3)
+    m_izq, m_der = np.round(m_izq, 3), np.round(m_der, 3)
+    if retornar_detalle:
+        return m_izq, m_der, pd.DataFrame(detalle)
+    return m_izq, m_der
 
 
 def procesar_alineamiento_horizontal(df_pis, v_diseno=60, e_max=8.0):
