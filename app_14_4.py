@@ -328,6 +328,150 @@ FICHA_POR_DEFECTO = {
 }
 
 
+# ===================================================================
+# DESCRIPCIÓN DE LOS MÓDULOS (pestaña "Acerca del Sistema")
+# ===================================================================
+DESCRIPCION_MODULOS = [
+    {
+        # No se lista en "Acerca del Sistema": tiene su propia pantalla
+        "oculto_en_acerca": True,
+        "titulo": "Ficha Técnica del Levantamiento",
+        "resumen": (
+            "Registro único de los datos que identifican el trabajo: proyecto, "
+            "localización, cuadrilla, instrumento y parámetros de cálculo. Encabeza "
+            "todos los informes PDF y sustenta la trazabilidad exigida en "
+            "interventoría. Diligenciarla antes de calcular evita que los informes "
+            "salgan con los campos en blanco."),
+        "entradas": ["Nombre del proyecto y localización",
+                     "Fecha, cuadrilla y condiciones climáticas",
+                     "Marca, modelo, serie y precisiones del equipo",
+                     "Punto de amarre y altura elipsoidal de la zona",
+                     "Tolerancias exigidas y material predominante"],
+        "salidas": ["Encabezado de los tres informes",
+                    "Tolerancia angular Ta = k a raíz de n",
+                    "Factor de escala combinado",
+                    "Corrección por esponjamiento y contracción"],
+        "norma": "IGAC - MAGNA-SIRGAS Origen Nacional (EPSG:9377)",
+    },
+    {
+        "titulo": "Módulo de Planimetría - Poligonales",
+        "resumen": (
+            "Cálculo y compensación de poligonales cerradas y abiertas con control. "
+            "Reduce las distancias inclinadas, compensa el error angular, calcula los "
+            "azimutes y ajusta las proyecciones por la Regla de la Brújula (Bowditch), "
+            "entregando las coordenadas definitivas de cada vértice."),
+        "entradas": ["Cartera de campo: ángulos horizontales y cenitales",
+                     "Distancias inclinadas, altura de instrumento y de prisma",
+                     "Coordenadas de amarre y referencia de orientación",
+                     "Sistema de proyección de trabajo"],
+        "salidas": ["Coordenadas compensadas y precisión relativa 1:P",
+                    "Plano topográfico con rumbos, distancias y escala",
+                    "Memoria de proyecciones y compensación",
+                    "Exportación a KML, DXF y Shapefile",
+                    "Informe PDF con verificación de tolerancias"],
+        "norma": "IGAC - Resolución 471 de 2020",
+    },
+    {
+        "titulo": "Módulo de Altimetría - Nivelación Geométrica",
+        "resumen": (
+            "Nivelación diferencial cerrada y abierta con control. Calcula las alturas "
+            "de instrumento, propaga las cotas, evalúa el error de cierre contra la "
+            "tolerancia del orden exigido y distribuye la compensación entre las "
+            "armadas."),
+        "entradas": ["Vistas atrás, intermedias y adelante",
+                     "Cota del Banco de Nivel de partida",
+                     "Cota de llegada en nivelaciones abiertas",
+                     "Orden de nivelación y longitud del circuito"],
+        "salidas": ["Cartera compensada con corrección punto por punto",
+                    "Error de cierre contrastado con la tolerancia del orden",
+                    "Verificación aritmética de la cartera",
+                    "Perfil altimétrico e informe PDF"],
+        "norma": "RAS - Resolución 0330 de 2017 para diseño por gravedad",
+    },
+    {
+        "titulo": "Módulo de Volúmenes - Movimiento de Tierras",
+        "resumen": (
+            "Cubicaje por secciones transversales. Genera la malla de abscisas y "
+            "offsets, calcula las cotas de terreno y de diseño, obtiene las áreas de "
+            "corte y relleno por el método de áreas medias y construye el diagrama de "
+            "masas."),
+        "entradas": ["Abscisa inicial y final, intervalos longitudinal y transversal",
+                     "Anchos y bombeos izquierdo y derecho",
+                     "Cota de rasante inicial y pendiente longitudinal",
+                     "Lecturas de mira por punto de la malla"],
+        "salidas": ["Áreas y volúmenes de corte y relleno por abscisa",
+                    "Diagrama de masas y análisis de acarreo",
+                    "Balance real corregido y viajes de volqueta",
+                    "Contraste con el método prismoidal y puntos de paso"],
+        "norma": "INVÍAS - NSR-10 Título H para excavaciones",
+    },
+    {
+        "titulo": "Módulo de Nube de Puntos",
+        "resumen": (
+            "Importación y visualización de levantamientos masivos. Lee archivos TXT o "
+            "CSV con detección automática del separador, permite emparejar las columnas "
+            "del archivo con los campos del sistema y proyecta los puntos sobre "
+            "cartografía oficial para validar la georreferenciación de la radiación de "
+            "campo."),
+        "entradas": ["Archivos TXT o CSV de la libreta electrónica",
+                     "Asignación de columnas: punto, este, norte, cota y descripción",
+                     "Sistema de proyección de los datos"],
+        "salidas": ["Visualización sobre mapa base satelital o cartográfico",
+                    "Consolidación de varios archivos en un mismo proyecto",
+                    "Base para la generación del modelo digital de terreno"],
+        "norma": None,
+    },
+    {
+        "titulo": "Módulo de Diseño Vial",
+        "resumen": (
+            "Diseño geométrico a partir del modelo digital de terreno. Permite ubicar "
+            "los Puntos de Intersección sobre el mapa para definir el alineamiento "
+            "horizontal, calcular los elementos de curva, definir la rasante y extraer "
+            "el perfil longitudinal para computar volúmenes."),
+        "entradas": ["Nube de puntos para generar el modelo digital de terreno",
+                     "Puntos de Intersección y radios de curva",
+                     "Rasante de diseño y sección tipo"],
+        "salidas": ["Alineamiento horizontal con elementos de curva",
+                    "Perfil longitudinal extraído del terreno",
+                    "Secciones transversales y volúmenes",
+                    "Plano de vías con norte y escala gráfica"],
+        "norma": "INVÍAS - Manual de Diseño Geométrico de Carreteras",
+    },
+]
+
+# Destino del botón "Atrás" de cada pantalla
+JERARQUIA_NAVEGACION = {
+    "Menu_Principal": ("Inicio", "Inicio"),
+    "Ficha_Tecnica": ("Menu_Principal", "Menú Principal"),
+    "Menu_Poligonales": ("Menu_Principal", "Menú Principal"),
+    "Menu_Altimetria": ("Menu_Principal", "Menú Principal"),
+    "Nube_Puntos": ("Menu_Principal", "Menú Principal"),
+    "Diseno_Vias": ("Menu_Principal", "Menú Principal"),
+    "Cerrada": ("Menu_Poligonales", "Módulo de Planimetría"),
+    "Abierta": ("Menu_Poligonales", "Módulo de Planimetría"),
+    "Niv_Cerrada": ("Menu_Altimetria", "Módulo de Altimetría"),
+    "Niv_Abierta": ("Menu_Altimetria", "Módulo de Altimetría"),
+    "Volumenes": ("Menu_Altimetria", "Módulo de Altimetría"),
+}
+
+
+def boton_atras(destino=None, etiqueta=None):
+    """
+    Botón de retorno al nivel anterior. Si no se indica destino, lo deduce
+    de JERARQUIA_NAVEGACION segun la pantalla activa.
+    """
+    modo = st.session_state.get("modo_app")
+    if destino is None:
+        destino, etiqueta = JERARQUIA_NAVEGACION.get(
+            modo, ("Menu_Principal", "Menú Principal"))
+    col_atras, _ = st.columns([1, 5])
+    with col_atras:
+        if st.button("Volver a " + etiqueta, use_container_width=True,
+                     key="atras_" + str(modo)):
+            st.session_state.modo_app = destino
+            st.rerun()
+
+
 def obtener_dir_sesion():
     """
     Directorio privado de esta sesión del navegador.
@@ -919,15 +1063,77 @@ if st.session_state.modo_app == "Inicio":
                     st.rerun()
 
     with tab_sobre:
-        col_txt, col_img = st.columns([2, 1])
-        with col_txt:
-            st.markdown("### Arquitectura del Geoportal Web")
-            st.write("El procesamiento de datos topográficos en gabinete representa históricamente un segmento crítico y susceptible a desviaciones sistemáticas. GeoPol Web se consolida como una solución integral que estandariza y automatiza estos procedimientos operativos.")
-            st.markdown("### Características Técnicas")
-            st.markdown("- Motor Matemático 2D y Renderizado Planimétrico Automatizado.\n- Interpolación de Superficies y Diseño Civil 3D en Tiempo Real.\n- Generación Niva de Reportes Académicos e Ingeniería en formato LaTeX.\n- Exportación e Interoperabilidad hacia Entornos GIS y CAD Industriales.")
-        with col_img:
-            mostrar_icono("planimetria.png", "", width=250, shadow=False)
-            mostrar_icono("volumenes.png", "", width=250, shadow=False)
+        st.markdown("### El Geoportal Web")
+        st.write(
+            "El procesamiento de datos topográficos en oficina ha sido "
+            "históricamente un segmento crítico del trabajo de ingeniería y, a la "
+            "vez, el más expuesto a errores sistemáticos. La cartera se transcribe a "
+            "mano a una hoja de cálculo, el ajuste se resuelve con fórmulas "
+            "improvisadas que rara vez quedan documentadas, el plano se dibuja en un "
+            "programa distinto y el informe se redacta en un software ofimático. Cada salto entre "
+            "herramientas es una oportunidad de que un dato se pierda, se redondee de "
+            "más o deje de corresponder con el resto del documento.")
+        st.write(
+            "GeoPol Web reúne ese recorrido completo en una sola plataforma: desde la "
+            "captura en campo, con fotografías estampadas que sirven de evidencia, "
+            "hasta la emisión del informe técnico formal con sus memorias de cálculo. "
+            "Los mismos números que se calculan son los que se dibujan y los que se "
+            "imprimen, de modo que el documento final no puede contradecir al "
+            "procesamiento que lo originó.")
+
+        st.markdown("### Qué lo distingue")
+        st.markdown(
+            "**Normativa colombiana de fábrica.** Trabaja sobre MAGNA-SIRGAS Origen "
+            "Nacional (EPSG:9377) conforme a la Resolución 471 de 2020 del IGAC, y "
+            "evalúa los resultados frente a las exigencias del RAS, el INVÍAS y la "
+            "NSR-10. Las herramientas de propósito general llegan con parámetros "
+            "genéricos que hay que configurar, y esa configuración rara vez queda "
+            "registrada en el informe.")
+        st.markdown(
+            "**El informe emite un dictamen, no un volcado de tablas.** Cada cierre se "
+            "contrasta con su tolerancia y el documento declara si cumple o no, con la "
+            "fórmula aplicada a la vista. La ficha del levantamiento, la "
+            "identificación del equipo con su calibración y la huella del conjunto de "
+            "datos encabezan el documento, que es lo que sustenta la trazabilidad "
+            "exigida en interventoría.")
+        st.markdown(
+            "**Correcciones que suelen omitirse.** Reduce las distancias de terreno al "
+            "plano de proyección mediante el factor de escala combinado, y corrige el "
+            "balance de tierras por esponjamiento y contracción del material. Un corte "
+            "no rellena su propio volumen: pasarlo por alto subestima el material que "
+            "hay que mover, y esa diferencia se paga en obra.")
+        st.markdown(
+            "**Sin instalación y sin licencias.** Se ejecuta en el navegador, también "
+            "desde el teléfono en campo. El proyecto completo se guarda en un archivo "
+            "que el usuario descarga y conserva, sin depender de una cuenta ni de un "
+            "servidor ajeno.")
+        st.markdown(
+            "**Los datos no quedan encerrados.** Exporta a KML, DXF y Shapefile, y "
+            "entrega también el código fuente LaTeX del informe, de modo que el "
+            "trabajo puede continuarse en cualquier entorno GIS o CAD.")
+        st.markdown(
+            "**Notación colombiana en todo el documento.** Coma decimal y punto para "
+            "los miles, de forma consistente en tablas, gráficas e informes.")
+
+        st.markdown("---")
+        st.markdown("### Módulos de la Plataforma")
+        st.caption("Despliegue cada módulo para conocer su alcance, los datos que "
+                   "requiere y los productos que entrega.")
+
+        for modulo in DESCRIPCION_MODULOS:
+            if modulo.get("oculto_en_acerca"):
+                continue
+            with st.expander(modulo["titulo"], expanded=False):
+                st.write(modulo["resumen"])
+                col_ent, col_sal = st.columns(2)
+                with col_ent:
+                    st.markdown("**Datos que requiere**")
+                    st.markdown("\n".join("- " + x for x in modulo["entradas"]))
+                with col_sal:
+                    st.markdown("**Productos que entrega**")
+                    st.markdown("\n".join("- " + x for x in modulo["salidas"]))
+                if modulo.get("norma"):
+                    st.caption("Referencia normativa: " + modulo["norma"])
 
     with tab_equipo:
         st.markdown("<h3 style='text-align:center;'>Dirección y Estructuración del Proyecto</h3><br>", unsafe_allow_html=True)
@@ -955,6 +1161,7 @@ if st.session_state.modo_app == "Inicio":
             st.markdown("</div>", unsafe_allow_html=True)
 
 elif st.session_state.modo_app == "Menu_Principal":
+    boton_atras()
     st.markdown("<h4 style='text-align: center; color: gray;'>Seleccione el Entorno de Trabajo Operativo</h4><br>", unsafe_allow_html=True)
     col_disc1, col_disc2, col_disc3, col_disc4 = st.columns(4)
     with col_disc1:
@@ -969,6 +1176,9 @@ elif st.session_state.modo_app == "Menu_Principal":
     with col_disc4:
         mostrar_icono("volumenes.png", "", width=180)
         if st.button("Diseño Vial", use_container_width=True): st.session_state.modo_app = "Diseno_Vias"; st.rerun()
+
+    if st.session_state.pop("ficha_recien_guardada", False):
+        st.success("Ficha Técnica guardada. Seleccione el módulo con el que desea trabajar.")
 
     st.markdown("---")
     faltantes_ficha = ficha_incompleta()
@@ -988,23 +1198,24 @@ elif st.session_state.modo_app == "Menu_Principal":
 # ===================================================================
 elif st.session_state.modo_app == "Ficha_Tecnica":
     renderizar_banner_proyecto()
-    st.title("📋 Ficha Técnica del Levantamiento")
+    boton_atras()
+    st.title("Ficha Técnica del Levantamiento")
     st.markdown("Estos datos encabezan **todos** los informes PDF que genere la "
                 "plataforma. Son los que sustentan la trazabilidad exigida en "
                 "interventoría: sin ellos el informe sale con los campos en blanco.")
 
     faltantes = ficha_incompleta()
     if faltantes:
-        st.warning("⚠️ Campos mínimos sin diligenciar: " + ", ".join(faltantes))
+        st.warning("Campos mínimos sin diligenciar: " + ", ".join(faltantes))
     else:
-        st.success("✅ Ficha completa. Los informes saldrán con el encabezado lleno.")
+        st.success("Ficha completa. Los informes saldrán con el encabezado lleno.")
 
     f = {**FICHA_POR_DEFECTO, **st.session_state.get("ficha_tecnica", {})}
 
     with st.form("form_ficha_tecnica"):
         tab_proy, tab_eq, tab_ref, tab_par = st.tabs([
-            "📋 Proyecto y Cuadrilla", "🔭 Equipo Topográfico",
-            "🌐 Referencia y Amarre", "⚙️ Parámetros de Cálculo"])
+            "Proyecto y Cuadrilla", "Equipo Topográfico",
+            "Referencia y Amarre", "Parámetros de Cálculo"])
 
         # ---------------- Proyecto ----------------
         with tab_proy:
@@ -1017,7 +1228,7 @@ elif st.session_state.modo_app == "Ficha_Tecnica":
                 "Fecha de levantamiento",
                 value=f["fecha_levantamiento"] or date.today())
 
-            st.markdown("**📍 Localización**")
+            st.markdown("**Localización**")
             c1, c2, c3 = st.columns(3)
             localizacion = c1.text_input("Sector / vereda / dirección",
                                          value=f["localizacion"],
@@ -1027,7 +1238,7 @@ elif st.session_state.modo_app == "Ficha_Tecnica":
             departamento = c3.text_input("Departamento", value=f["departamento"],
                                          placeholder="Cundinamarca")
 
-            st.markdown("**👷 Cuadrilla y condiciones**")
+            st.markdown("**Cuadrilla y condiciones**")
             cuadrilla = st.text_input(
                 "Integrantes de la cuadrilla",
                 value=f["cuadrilla"],
@@ -1051,7 +1262,7 @@ elif st.session_state.modo_app == "Ficha_Tecnica":
 
         # ---------------- Equipo ----------------
         with tab_eq:
-            st.markdown("**🔭 Instrumento utilizado**")
+            st.markdown("**Instrumento utilizado**")
             c1, c2, c3 = st.columns(3)
             equipo_marca = c1.text_input("Marca", value=f["equipo_marca"],
                                          placeholder="Leica / Topcon / South")
@@ -1059,7 +1270,7 @@ elif st.session_state.modo_app == "Ficha_Tecnica":
                                           placeholder="TS07")
             equipo_serie = c3.text_input("Número de serie", value=f["equipo_serie"])
 
-            st.markdown("**📐 Precisiones nominales y calibración**")
+            st.markdown("**Precisiones nominales y calibración**")
             c1, c2, c3 = st.columns(3)
             equipo_calib = c1.date_input("Fecha del certificado de calibración",
                                          value=f["equipo_calibracion"] or date.today())
@@ -1080,12 +1291,12 @@ elif st.session_state.modo_app == "Ficha_Tecnica":
 
         # ---------------- Referencia ----------------
         with tab_ref:
-            st.markdown("**🌐 Sistema de referencia**")
+            st.markdown("**Sistema de referencia**")
             st.info("El sistema horizontal se toma automáticamente de la proyección "
                     "que selecciones en cada módulo de cálculo.")
             datum_vertical = st.text_input("Datum vertical", value=f["datum_vertical"])
 
-            st.markdown("**📌 Amarre del levantamiento**")
+            st.markdown("**Amarre del levantamiento**")
             c1, c2 = st.columns(2)
             punto_amarre = c1.text_input(
                 "Código del punto de amarre", value=f["punto_amarre"],
@@ -1106,7 +1317,7 @@ elif st.session_state.modo_app == "Ficha_Tecnica":
 
         # ---------------- Parámetros ----------------
         with tab_par:
-            st.markdown("**📐 Planimetría**")
+            st.markdown("**Planimetría**")
             c1, c2 = st.columns(2)
             precision_exigida = c1.number_input(
                 "Precisión relativa exigida (1 : P)",
@@ -1117,7 +1328,7 @@ elif st.session_state.modo_app == "Ficha_Tecnica":
                 min_value=0.5, max_value=5.0, step=0.5, format="%.1f")
             st.caption("k = 1 exigente · k = 2 estándar en obra civil · k = 3 expedito.")
 
-            st.markdown("**⛰️ Altimetría**")
+            st.markdown("**Altimetría**")
             c1, c2 = st.columns(2)
             ordenes = list(ORDENES_NIVELACION.keys())
             orden_nivelacion = c1.selectbox(
@@ -1132,7 +1343,7 @@ elif st.session_state.modo_app == "Ficha_Tecnica":
                        "La cartera de nivelación no registra distancias, por eso hay "
                        "que indicar aquí la longitud del circuito.")
 
-            st.markdown("**🚜 Movimiento de tierras**")
+            st.markdown("**Movimiento de tierras**")
             c1, c2, c3 = st.columns(3)
             materiales = list(FACTORES_MATERIAL.keys())
             material_volumenes = c1.selectbox(
@@ -1148,7 +1359,7 @@ elif st.session_state.modo_app == "Ficha_Tecnica":
             st.caption("El material determina el esponjamiento y la contracción con "
                        "los que se corrige el balance volumétrico real.")
 
-        guardado = st.form_submit_button("💾 Guardar Ficha Técnica",
+        guardado = st.form_submit_button("Guardar Ficha Técnica",
                                          type="primary", use_container_width=True)
 
     if guardado:
@@ -1180,19 +1391,21 @@ elif st.session_state.modo_app == "Ficha_Tecnica":
             "observaciones": observaciones.strip(),
         }
         st.cache_data.clear()   # los PDFs cacheados llevan la ficha anterior
-        st.success("✅ Ficha guardada. Los informes que generes ahora la incluirán.")
+        st.session_state.ficha_recien_guardada = True
+        # Al guardar se devuelve al usuario a la selección de módulos
+        st.session_state.modo_app = "Menu_Principal"
         st.rerun()
 
     st.markdown("---")
-    with st.expander("👁️ Vista previa del encabezado que verá el informe"):
+    with st.expander("Vista previa del encabezado que verá el informe"):
         previa = construir_metadatos(huella="(se calcula al compilar)")
         st.dataframe(
             pd.DataFrame({"Campo": list(previa.keys()),
-                          "Valor": [v if v else "— sin diligenciar —"
+                          "Valor": [v if v else "sin diligenciar"
                                     for v in previa.values()]}),
             use_container_width=True, hide_index=True)
 
-    with st.expander("🔧 Estado del motor LaTeX en este servidor"):
+    with st.expander("Estado del motor LaTeX en este servidor"):
         diag = diagnostico_latex()
         if not diag["pdflatex"]:
             st.error("No hay pdflatex instalado. Añade packages.txt al repositorio.")
@@ -1207,6 +1420,7 @@ elif st.session_state.modo_app == "Ficha_Tecnica":
             st.code(diag["packages_txt"], language="text")
 
 elif st.session_state.modo_app == "Menu_Poligonales":
+    boton_atras()
     st.markdown("<h3 style='text-align: center; color: #4A4A4A;'>Análisis Planimétrico (Poligonales)</h3><br>", unsafe_allow_html=True)
     colA, colB = st.columns(2)
     with colA:
@@ -1217,6 +1431,7 @@ elif st.session_state.modo_app == "Menu_Poligonales":
         if st.button("Ejecutar Poligonal Abierta", use_container_width=True): st.session_state.modo_app = "Abierta"; st.rerun()
 
 elif st.session_state.modo_app == "Menu_Altimetria":
+    boton_atras()
     st.markdown("<h3 style='text-align: center; color: #4A4A4A;'>Control Altimétrico y Análisis Vertical</h3><br>", unsafe_allow_html=True)
     colA, colB, colC = st.columns(3)
     with colA:
@@ -1234,6 +1449,7 @@ elif st.session_state.modo_app == "Menu_Altimetria":
 # ===================================================================
 elif st.session_state.modo_app == "Nube_Puntos":
     renderizar_banner_proyecto()
+    boton_atras()
     st.title("Sistema de Información Espacial (Nubes de Puntos)")
     st.markdown("Plataforma de visualización para la importación y consolidación de archivos topográficos masivos. Permite validar georreferenciación de la radiación de campo sobre cartografía oficial base.")
 
@@ -1417,6 +1633,7 @@ elif st.session_state.modo_app == "Nube_Puntos":
 # ===================================================================
 elif st.session_state.modo_app in ["Volumenes"]:
     renderizar_banner_proyecto()
+    boton_atras()
     st.title("Diseño de Obra Civil y Computo de Volúmenes 3D")
 
     st.header("1. Parametrización Geométrica Base")
@@ -1607,6 +1824,7 @@ elif st.session_state.modo_app in ["Volumenes"]:
 # ------------------ MÓDULOS DE NIVELACIÓN NORMAL ------------------
 elif st.session_state.modo_app in ["Niv_Cerrada", "Niv_Abierta"]:
     renderizar_banner_proyecto()
+    boton_atras()
 
     if st.session_state.modo_app == "Niv_Cerrada":
         st.title("Red Altimétrica: Nivelación Geométrica de Circuito Cerrado")
@@ -1769,6 +1987,7 @@ elif st.session_state.modo_app in ["Niv_Cerrada", "Niv_Abierta"]:
 # ===================================================================
 elif st.session_state.modo_app in ["Cerrada", "Abierta"]:
     renderizar_banner_proyecto()
+    boton_atras()
 
     if st.session_state.modo_app == "Cerrada":
         st.title("Red Planimétrica: Red de Circuito Cerrado")
@@ -2247,6 +2466,7 @@ elif st.session_state.modo_app in ["Cerrada", "Abierta"]:
 # ===================================================================
 elif st.session_state.modo_app == "Diseno_Vias":
     renderizar_banner_proyecto()
+    boton_atras()
     st.title("Diseño Geométrico de Vías (Integración 3D)")
     st.markdown("Establezca los Puntos de Intersección (PI) sobre el modelo geoespacial para definir el alineamiento en planta, defina la rasante y extraiga el perfil longitudinal automáticamente para computar volúmenes.")
 
@@ -2278,7 +2498,7 @@ elif st.session_state.modo_app == "Diseno_Vias":
 
         for n_arch in nombres_archivos:
             c_info, c_btn = st.columns([5, 1])
-            c_info.write(f"📄 {n_arch} - ({len(st.session_state.nubes_vias_guardadas[n_arch])} registros)")
+            c_info.write(f" {n_arch} - ({len(st.session_state.nubes_vias_guardadas[n_arch])} registros)")
             if c_btn.button("Remover", key=f"del_vias_{n_arch}"):
                 del st.session_state.nubes_vias_guardadas[n_arch]
                 st.rerun()
@@ -2388,7 +2608,7 @@ elif st.session_state.modo_app == "Diseno_Vias":
 
         if st.session_state.get('vias_dtm_bounds'):
             c_lupa, c_ver, c_opac = st.columns([1.2, 1, 1.5])
-            if c_lupa.button("🔎 Centrar vista en el Modelo (TIN)", use_container_width=True):
+            if c_lupa.button(" Centrar vista en el Modelo (TIN)", use_container_width=True):
                 st.session_state.force_dtm_zoom = True
                 st.rerun()
             # Ocultar el raster acelera muchísimo el mapa mientras se marcan los PI:
@@ -2754,7 +2974,7 @@ elif st.session_state.modo_app == "Diseno_Vias":
         for i in range(len(df_v_val) - 1):
             m = float(df_v_val.iloc[i]['Pendiente Salida (%)'])
             l_tr = float(df_v_val.iloc[i]['Longitud Tramo (m)'])
-            tramo = (f"Tramo {i+1} · {df_v_val.iloc[i]['Vértice PIV']} → "
+            tramo = (f"Tramo {i+1} · {df_v_val.iloc[i]['Vértice PIV']}  "
                      f"{df_v_val.iloc[i+1]['Vértice PIV']} (L = {l_tr:.3f} m)")
             if abs(m) > max_slope:
                 st.error(f"{tramo}: pendiente de {m:.3f}% excede el máximo permitido ({max_slope}%).")

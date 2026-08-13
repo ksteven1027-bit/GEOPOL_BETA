@@ -140,9 +140,23 @@ def poligonal_3d_v2_5(estacionado, punto_obs, ang_h_dms, ang_z_dms, dist_inc, hi
         'Desnivel_Ajus': [round(dv, 3) for dv in dv_ajus_col], 'Z_Estacion': [round(c, 3) for c in z_col]
     })
     
+    # Datos por lado SIN redondear, en el orden físico del recorrido.
+    # Los necesita el informe LaTeX para la memoria de proyecciones de
+    # Bowditch: tomarlos del DataFrame introduce el redondeo a milímetro
+    # de Dist_Horiz y el cierre no coincide con el que se reporta aquí.
+    lados_circuito = [
+        {"lado": f"{estacionado[i]}-{punto_obs[i]}",
+         "distancia": dist_horiz[i],
+         "azimut": azimuts_tramos[i],
+         "delta_e": departures_crudos[i],
+         "delta_n": latitudes_crudos[i]}
+        for i in orden_recorrido
+    ]
+
     # Empaquetamos las métricas técnicas solicitadas
     metricas = {
         "perimetro": perimetro_h, "origen_azimut": origen_azimut,
+        "lados": lados_circuito, "tipo_circuito": "cerrado",
         "err_ang_ant": error_angular, "err_ang_des": (sum(ang_h_ajustados_pol) - suma_teorica),
         "err_e_ant": error_dep, "err_e_des": sum(dep_ajus.values()),
         "err_n_ant": error_lat, "err_n_des": sum(lat_ajus.values()),
