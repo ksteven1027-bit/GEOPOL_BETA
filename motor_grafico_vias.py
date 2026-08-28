@@ -215,7 +215,8 @@ def generar_plano_vias(df_eje, df_curvas, df_pis, df_vertical=None, ancho_calzad
             ("Tang. (m)", "Tangente (m)", "{:.2f}"),
             ("L. Curva (m)", "Long. Curva (m)", "{:.2f}"),
             ("Peralte (%)", "Peralte (%)", "{:.2f}"),
-            ("Pend. (%)", "Pendiente (%)", "{:.2f}"),
+            ("Pend. Ent. (%)", "Pend. Entrada (%)", "{:.2f}"),
+            ("Pend. Sal. (%)", "Pend. Salida (%)", "{:.2f}"),
             ("Abscisa PC", "Abscisa PC", None),
             ("Abscisa PT", "Abscisa PT", None),
         ]
@@ -232,7 +233,8 @@ def generar_plano_vias(df_eje, df_curvas, df_pis, df_vertical=None, ancho_calzad
         anchos_base = {
             "Vértice (PI)": 0.08, "Deflexión (Δ)": 0.18, "Radio (m)": 0.07,
             "Tang. (m)": 0.08, "L. Curva (m)": 0.09, "Peralte (%)": 0.08,
-            "Pend. (%)": 0.09, "Abscisa PC": 0.165, "Abscisa PT": 0.165,
+            "Pend. Ent. (%)": 0.085, "Pend. Sal. (%)": 0.085,
+            "Abscisa PC": 0.165, "Abscisa PT": 0.165,
         }
         col_widths = [anchos_base.get(c, 0.10) for c in cols]
         total = sum(col_widths)

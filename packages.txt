@@ -2,3 +2,7 @@ texlive-latex-base
 texlive-fonts-recommended
 texlive-latex-extra
 texlive-lang-spanish
+texlive-science
+texlive-latex-recommended
+texlive-pictures
+lmodern

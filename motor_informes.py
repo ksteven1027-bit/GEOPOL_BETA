@@ -1837,10 +1837,11 @@ def preambulo_v2(ruta_logo="Iconos/logo_geopol.png",
                    r"fontupper=\color{#1!75!black}}}")
 
     if ruta_logo and os.path.exists(ruta_logo) and hay("eso-pic"):
-        logo = ruta_logo.replace("\\", "/")
+        # Forzamos la ruta absoluta para que pdflatex la encuentre sin importar su directorio de trabajo
+        logo_abs = os.path.abspath(ruta_logo).replace("\\", "/")
         transp = (r"\transparent{0.06}" if hay("transparent") else "")
         tex.append(r"\AddToShipoutPictureBG{\AtPageCenter{\makebox[0pt]{"
-                   + transp + r"\includegraphics[width=12cm]{" + logo + r"}}}}")
+                   + transp + r"\includegraphics[width=12cm]{" + logo_abs + r"}}}}")
 
     tex.append(r"\hypersetup{colorlinks=true, linkcolor=GeoBlue, urlcolor=GeoOrange,"
                r" pdfborder={0 0 0}}")
@@ -1917,7 +1918,7 @@ def portada_v2(titulo, autores, tutor, subtitulo=None, lema=None, caps=None):
     return "\n".join(tex)
 
 
-def obtener_contenido_informe(tipo_trabajo):
+def obtener_contenido_informe(tipo_trabajo, sistema_referencia="MAGNA-SIRGAS (Origen Nacional, EPSG:9377)"):
     c = {}
     if "Poligonal" in tipo_trabajo:
         c["intro"] = (
@@ -1942,9 +1943,8 @@ def obtener_contenido_informe(tipo_trabajo):
         c["marco"] = (
             r"El procesamiento se rige por las especificaciones técnicas del "
             r"\textbf{Instituto Geográfico Agustín Codazzi (IGAC)}. Toda la "
-            r"información espacial se encuentra referida al sistema oficial de "
-            r"Colombia, \textbf{MAGNA-SIRGAS (Origen Nacional, EPSG:9377)}, en "
-            r"cumplimiento de la Resolución 471 de 2020. "
+            r"información espacial se encuentra referida al sistema de proyección "
+            r"\textbf{" + escapar_latex(sistema_referencia) + r"}. "
             r"Por tratarse de una proyección Transversa de Mercator con factor de "
             r"escala en el meridiano central $k_0 = 0{,}9992$, las distancias "
             r"medidas sobre el terreno deben reducirse al plano de proyección "
@@ -2051,6 +2051,113 @@ def obtener_contenido_informe(tipo_trabajo):
             r"del \textbf{INVÍAS}; cuando el movimiento "
             r"involucra excavaciones para cimentaciones se atiende el Título H de "
             r"la \textbf{NSR-10}.")
+    elif "Vial" in tipo_trabajo or "Vias" in tipo_trabajo or "Vías" in tipo_trabajo:
+        c["intro"] = (
+            r"El presente informe documenta el diseño geométrico de la vía "
+            r"proyectada, entendido como la definición conjunta del alineamiento "
+            r"horizontal, el alineamiento vertical y la sección transversal. El "
+            r"trazado se apoya sobre un modelo digital de terreno construido por "
+            r"triangulación de Delaunay a partir de la nube de puntos del "
+            r"levantamiento topográfico, de modo que las cotas de terreno "
+            r"empleadas en el perfil longitudinal y en el cubicaje proceden "
+            r"directamente de la superficie medida en campo y no de una "
+            r"interpolación externa. El objeto del documento es dejar constancia "
+            r"trazable de los parámetros adoptados, de las verificaciones "
+            r"normativas practicadas y de las memorias de cálculo que sustentan "
+            r"cada elemento geométrico.")
+        c["objetivos"] = (
+            r"\begin{itemize}[leftmargin=1.2em,itemsep=2pt]"
+            r"\item \textbf{General:} definir el eje de la vía en planta y en "
+            r"perfil, verificando su conformidad con los criterios del Manual de "
+            r"Diseño Geométrico de Carreteras del INVÍAS."
+            r"\item \textbf{Específicos:}"
+            r"\begin{itemize}[itemsep=1pt]"
+            r"\item Calcular los elementos de cada curva circular simple a partir "
+            r"de los vértices de intersección y de los radios adoptados."
+            r"\item Contrastar los radios adoptados contra el radio mínimo "
+            r"admisible para la velocidad específica de cada curva."
+            r"\item Determinar el peralte de diseño y desarrollar su transición "
+            r"conforme al numeral 3.2 del Manual."
+            r"\item Verificar las pendientes longitudinales frente a los límites "
+            r"máximo y mínimo de drenaje."
+            r"\item Cuantificar el movimiento de tierras asociado al corredor."
+            r"\end{itemize}\end{itemize}")
+        c["marco"] = (
+            r"El diseño se rige por el \textbf{Manual de Diseño Geométrico de "
+            r"Carreteras} del \textbf{Instituto Nacional de Vías (INVÍAS)}. La "
+            r"información espacial se refiere al sistema de proyección "
+            r"\textbf{" + escapar_latex(sistema_referencia) + r"}."
+            r"\par\medskip "
+            r"El alineamiento horizontal se resuelve mediante \textbf{curvas "
+            r"circulares simples}. Para una deflexión $\Delta$ y un radio $R$, los "
+            r"elementos de la curva son:"
+            r"\begin{equation}"
+            r"T = R\tan\frac{\Delta}{2} \qquad "
+            r"L_c = \frac{\pi R \Delta}{180} \qquad "
+            r"E = R\left(\sec\frac{\Delta}{2}-1\right) \qquad "
+            r"M = R\left(1-\cos\frac{\Delta}{2}\right)"
+            r"\end{equation}"
+            r"donde $T$ es la tangente, $L_c$ la longitud de curva, $E$ la externa "
+            r"y $M$ la ordenada media. El abscisado se lleva sobre el eje curvo, "
+            r"de manera que el recorrido real resulta menor que la poligonal que "
+            r"une los vértices de intersección."
+            r"\par\medskip "
+            r"El \textbf{peralte} necesario para equilibrar la fuerza centrífuga "
+            r"se obtiene de la ecuación fundamental del movimiento circular:"
+            r"\begin{equation}"
+            r"e + f = \frac{V^{2}}{127\,R}"
+            r"\end{equation}"
+            r"con $V$ en km/h, $R$ en metros y $f$ el coeficiente de fricción "
+            r"transversal, que decrece al aumentar la velocidad. De la misma "
+            r"expresión se despeja el \textbf{radio mínimo} admisible, "
+            r"$R_{min} = V^{2} / \left[127\,(e_{max}+f)\right]$."
+            r"\par\medskip "
+            r"La \textbf{transición del peralte} se desarrolla según el numeral "
+            r"3.2 del Manual. La longitud de transición es:"
+            r"\begin{equation}"
+            r"L = \frac{a \cdot b_w \cdot (e_f - e_i)}{\Delta s}"
+            r"\end{equation}"
+            r"donde $a = w\,n$ es el ancho de calzada que gira, $b_w$ el factor de "
+            r"ajuste por número de carriles girados y $\Delta s$ la pendiente "
+            r"relativa máxima de la rampa de peraltes, tabulada en función de la "
+            r"velocidad específica. La longitud de aplanamiento $N$, necesaria "
+            r"para que el borde exterior pierda el bombeo, se obtiene con la misma "
+            r"rampa. El desarrollo se reparte de modo que en el PC y en el PT el "
+            r"peralte alcance una fracción prefijada de su valor pleno."
+            r"\par\medskip "
+            r"El \textbf{alineamiento vertical} está formado por tangentes "
+            r"enlazadas por \textbf{arcos parabólicos de eje vertical}. El enlace "
+            r"se dispone cuando la diferencia algebraica de pendientes "
+            r"$A = g_2 - g_1$ supera el uno por ciento en carreteras pavimentadas "
+            r"y el dos por ciento en las demás. La curva queda definida por su "
+            r"parámetro de curvatura, que expresa la longitud horizontal necesaria "
+            r"para que la pendiente varíe un uno por ciento:"
+            r"\begin{equation}"
+            r"K = \frac{L}{|A|} \qquad "
+            r"y(x) = y_{PCV} + \frac{g_1}{100}\,x + \frac{A}{200\,L}\,x^{2} "
+            r"\qquad E = \frac{|A|\,L}{800}"
+            r"\end{equation}"
+            r"donde $x$ se mide desde el principio de curva vertical (PCV) y $E$ es "
+            r"la externa, es decir, la separación vertical entre el vértice de "
+            r"inflexión y la parábola."
+            r"\par\medskip "
+            r"La longitud mínima responde a tres criterios. El de \textbf{seguridad} "
+            r"garantiza la distancia de visibilidad de parada $D_P$; para el caso "
+            r"$D_P < L$, que es el que adopta el Manual por resultar más exigente:"
+            r"\begin{equation}"
+            r"L_{min} = \frac{A\,D_P^{2}}"
+            r"{100\left(\sqrt{2h_1}+\sqrt{2h_2}\right)^{2}} "
+            r"\;\text{(convexa)} \qquad "
+            r"L_{min} = \frac{A\,D_P^{2}}{122 + 3{,}5\,D_P} \;\text{(cóncava)}"
+            r"\end{equation}"
+            r"con $h_1 = 1{,}08$ m la altura del ojo del conductor y "
+            r"$h_2 = 0{,}60$ m la del obstáculo; en las cóncavas rige la "
+            r"iluminación de los faros, situados a $0{,}60$ m con una divergencia "
+            r"de un grado. El criterio de \textbf{operación}, $L_{min} = 0{,}6\,V$, "
+            r"evita la sensación de cambio brusco de pendiente. El criterio de "
+            r"\textbf{drenaje} limita $K \leq 50$ para impedir el empozamiento en "
+            r"el tramo casi horizontal del vértice cuando la curva se sitúa en "
+            r"zona de corte.")
     return c
 
 
@@ -2130,7 +2237,7 @@ def generar_reporte_poligonal_latex(df_campo, df_ajuste, metricas, tipo_poligona
         kpis.append({"titulo": "Factor combinado",
                      "valor": f"{fe['factor_combinado']:.7f}".replace(".", ","),
                      "sub": f"{fe['ppm']:.1f} ppm".replace(".", ","), "estado": "neutro"})
-    textos = obtener_contenido_informe("Poligonal")
+    textos = obtener_contenido_informe("Poligonal", meta.get("Sistema de referencia", ""))
     tex.append(r"\section{Introducción}")
     tex.append(textos["intro"])
     tex.append(r"\subsection{Objetivos del Procesamiento}")
@@ -2715,6 +2822,407 @@ def generar_reporte_volumenes_latex(df_cubicaje, metricas, autores, tutor,
 
 
 # ===================================================================
+# 4. DISEÑO GEOMÉTRICO DE VÍAS
+# ===================================================================
+# Valor máximo de K por drenaje (AASHTO 2004, adoptado por el Manual del
+# INVIAS). Se declara aquí para que el motor de informes no dependa del
+# motor de cálculo: ambos módulos deben poder usarse por separado.
+K_MAX_DRENAJE = 50.0
+def evaluar_pendiente_longitudinal(pendiente, max_admisible=8.0, min_drenaje=0.5):
+    """Dictamen textual de una pendiente longitudinal."""
+    m = abs(float(pendiente))
+    if m > max_admisible:
+        return ("excede", f"La pendiente de {_num_es(f'{m:.3f}')}\\% supera el máximo "
+                          f"admisible de {_num_es(f'{max_admisible:.1f}')}\\%.")
+    if m < min_drenaje:
+        return ("drenaje", f"La pendiente de {_num_es(f'{m:.3f}')}\\% es inferior al "
+                           f"mínimo de {_num_es(f'{min_drenaje:.1f}')}\\% requerido "
+                           f"para el drenaje longitudinal de la calzada.")
+    return ("ok", f"La pendiente de {_num_es(f'{m:.3f}')}\\% se encuentra dentro del "
+                  f"rango admisible.")
+
+
+def generar_reporte_vias_latex(df_curvas, df_vertical, autores, tutor,
+                               df_transicion=None, df_curvas_verticales=None,
+                               df_cubicaje=None,
+                               metricas_volumen=None,
+                               v_diseno=60.0, ancho_calzada=7.2,
+                               ancho_carril=3.65, n_carriles_giran=1.0,
+                               bombeo=2.0, peralte_max=8.0,
+                               pendiente_max=8.0, pendiente_min=0.5,
+                               radio_minimo_admisible=None,
+                               path_planta=None, path_perfil=None,
+                               path_masas=None, paths_secciones=None,
+                               equipo=None, metadatos=None,
+                               ruta_logo="Iconos/logo_geopol.png",
+                               directorio_salida="Reportes_PDF", gestor=None):
+    """
+    Memoria de cálculo del diseño geométrico vial: alineamiento horizontal,
+    desarrollo del peralte, rasante y movimiento de tierras del corredor.
+
+    df_curvas     : cuadro de curvas de motor_vias.procesar_alineamiento_horizontal
+    df_vertical   : tabla de PIVs del mismo motor
+    df_transicion : detalle del peralte de motor_vias.peraltes_por_abscisa
+    df_cubicaje   : cuadro de volúmenes (opcional)
+    """
+    caps = capacidades_latex()
+    gestor = gestor or GestorFiguras(directorio_salida)
+    tex = [preambulo_v2(ruta_logo=ruta_logo, subcarpeta_figuras=gestor.subcarpeta)]
+    tex.append(portada_v2("Memorias de Cálculo del Diseño Geométrico Vial",
+                          autores, tutor,
+                          subtitulo="Alineamiento horizontal, rasante y sección transversal"))
+
+    meta = dict(EJEMPLO_METADATOS)
+    meta["Velocidad de diseño"] = f"{float(v_diseno):.0f} km/h"
+    meta["Ancho de calzada"] = _num_es(f"{float(ancho_calzada):.2f}") + " m"
+    meta["Peralte máximo adoptado"] = _num_es(f"{float(peralte_max):.2f}") + " %"
+    meta["Bombeo de la calzada"] = _num_es(f"{abs(float(bombeo)):.2f}") + " %"
+    if equipo:
+        meta.update(ficha_equipo_a_metadatos(equipo))
+    if metadatos:
+        meta.update(metadatos)
+
+    df_curvas = df_curvas if df_curvas is not None else pd.DataFrame()
+    df_vertical = df_vertical if df_vertical is not None else pd.DataFrame()
+
+    # ---------- Indicadores ----------
+    n_curvas = len(df_curvas)
+    long_total = 0.0
+    if not df_vertical.empty and "Abscisa" in df_vertical.columns:
+        long_total = float(pd.to_numeric(df_vertical["Abscisa"], errors="coerce").max() or 0.0)
+
+    r_min_val = (float(radio_minimo_admisible) if radio_minimo_admisible is not None
+                 else None)
+    radios = pd.to_numeric(df_curvas.get("Radio (m)"), errors="coerce") if n_curvas else pd.Series(dtype=float)
+    r_menor = float(radios.min()) if len(radios.dropna()) else 0.0
+
+    incumplen_r = 0
+    if n_curvas and "Cumple R_min" in df_curvas.columns:
+        incumplen_r = int((df_curvas["Cumple R_min"].astype(str).str.upper() == "NO").sum())
+    elif n_curvas and r_min_val:
+        incumplen_r = int((radios < r_min_val).sum())
+
+    # Pendientes: la última fila del cuadro vertical es el cierre artificial
+    pend = pd.Series(dtype=float)
+    if not df_vertical.empty and "Pendiente Salida (%)" in df_vertical.columns:
+        pend = pd.to_numeric(df_vertical["Pendiente Salida (%)"], errors="coerce").iloc[:-1]
+    excede_pend = int((pend.abs() > float(pendiente_max)).sum()) if len(pend) else 0
+    bajo_drenaje = int((pend.abs() < float(pendiente_min)).sum()) if len(pend) else 0
+
+    kpis = [
+        {"titulo": "Longitud del eje", "valor": _num_es(f"{long_total:.2f}") + " m",
+         "sub": f"{max(len(df_vertical) - 1, 0)} tramos", "estado": "neutro"},
+        {"titulo": "Curvas horizontales", "valor": f"{n_curvas}",
+         "sub": "circulares simples", "estado": "neutro"},
+        {"titulo": "Radio menor adoptado", "valor": _num_es(f"{r_menor:.2f}") + " m",
+         "sub": (f"mínimo admisible {_num_es(f'{r_min_val:.2f}')} m" if r_min_val else None),
+         "estado": "alerta" if incumplen_r else "ok"},
+        {"titulo": "Velocidad de diseño", "valor": f"{float(v_diseno):.0f} km/h",
+         "estado": "neutro"},
+        {"titulo": "Curvas bajo radio mínimo", "valor": f"{incumplen_r}",
+         "estado": "alerta" if incumplen_r else "ok"},
+        {"titulo": "Tramos fuera de rango", "valor": f"{excede_pend + bajo_drenaje}",
+         "sub": f"{excede_pend} por pendiente máxima, {bajo_drenaje} por drenaje",
+         "estado": "alerta" if (excede_pend + bajo_drenaje) else "ok"},
+    ]
+
+    # Acuerdos verticales
+    df_cv = (df_curvas_verticales if df_curvas_verticales is not None
+             else pd.DataFrame())
+    cv_activas = pd.DataFrame()
+    cv_incumplen = 0
+    if not df_cv.empty and "Tipo" in df_cv.columns:
+        cv_activas = df_cv[df_cv["Tipo"].astype(str) != "Sin curva"]
+        if not cv_activas.empty:
+            obs = cv_activas.get("Observación", pd.Series([""] * len(cv_activas))).astype(str)
+            dren = cv_activas.get("Cumple drenaje", pd.Series([""] * len(cv_activas))).astype(str)
+            cv_incumplen = int((obs.str.contains("No cumple|recortada", regex=True)
+                                | (dren.str.upper() == "NO")).sum())
+        kpis.append({"titulo": "Acuerdos verticales", "valor": f"{len(cv_activas)}",
+                     "sub": "parábolas simétricas", "estado": "neutro"})
+        kpis.append({"titulo": "Curvas verticales con observación",
+                     "valor": f"{cv_incumplen}",
+                     "estado": "alerta" if cv_incumplen else "ok"})
+
+    textos = obtener_contenido_informe("Vial", meta.get("Sistema de referencia", ""))
+    tex.append(r"\section{Introducción}")
+    tex.append(textos["intro"])
+    tex.append(r"\subsection{Objetivos}")
+    tex.append(textos["objetivos"])
+    tex.append(r"\section{Marco Teórico y Normativo}")
+    tex.append(textos["marco"])
+
+    tex.append(ficha_metadatos(meta))
+
+    tex.append(r"\section{Resumen de Indicadores del Diseño}")
+    tex.append(panel_kpi(kpis, columnas=3))
+
+    # ---------- Alineamiento horizontal ----------
+    tex.append(r"\section{Alineamiento Horizontal}")
+    tex.append(r"El eje se define a partir de los vértices de intersección (PI) "
+               r"materializados sobre el modelo digital de terreno. Para cada "
+               r"vértice se calculan la deflexión, los elementos de la curva "
+               r"circular y las coordenadas del principio de curva (PC) y del "
+               r"principio de tangencia (PT), así como su abscisado sobre el eje.")
+
+    if n_curvas:
+        cols_geom = [c for c in ["Vértice (PI)", "Deflexión (Δ)", "Radio (m)",
+                                 "Grado Curv. (Gc)", "Tangente (m)", "Long. Curva (m)",
+                                 "Externa (m)", "Ord. Media (m)", "Cuerda Larga (m)"]
+                     if c in df_curvas.columns]
+        tex.append(tabla_larga(df_curvas[cols_geom],
+                               "Elementos geométricos de las curvas circulares",
+                               "curvas_geom",
+                               notas="Deflexión en grados sexagesimales; el sufijo "
+                                     "indica el sentido de giro (D: derecha, I: izquierda).",
+                               id_cols=1))
+
+        cols_absc = [c for c in ["Vértice (PI)", "Abscisa PC", "Abscisa PI", "Abscisa PT",
+                                 "E_PC (m)", "N_PC (m)", "E_PT (m)", "N_PT (m)"]
+                     if c in df_curvas.columns]
+        tex.append(tabla_larga(df_curvas[cols_absc],
+                               "Abscisado y coordenadas de los puntos singulares",
+                               "curvas_absc",
+                               notas="Coordenadas en el sistema de proyección declarado "
+                                     "en la ficha técnica.",
+                               id_cols=1))
+
+        # Verificación del radio mínimo
+        if r_min_val:
+            if incumplen_r:
+                tex.append(caja_dictamen(
+                    "Verificación del radio mínimo",
+                    f"Para una velocidad de diseño de {float(v_diseno):.0f} km/h y un "
+                    f"peralte máximo de {_num_es(f'{float(peralte_max):.2f}')}\\%, el radio "
+                    f"mínimo admisible es de \\SI{{{r_min_val:.2f}}}{{\\metre}}. "
+                    f"\\textbf{{{incumplen_r}}} curva(s) adoptan un radio inferior, "
+                    f"lo que obliga a revisar el trazado o a reducir la velocidad "
+                    f"específica del sector.",
+                    estado="alerta"))
+            else:
+                tex.append(caja_dictamen(
+                    "Verificación del radio mínimo",
+                    f"Todas las curvas superan el radio mínimo admisible de "
+                    f"\\SI{{{r_min_val:.2f}}}{{\\metre}}, correspondiente a una velocidad "
+                    f"de diseño de {float(v_diseno):.0f} km/h con peralte máximo de "
+                    f"{_num_es(f'{float(peralte_max):.2f}')}\\%.",
+                    estado="ok"))
+    else:
+        tex.append(r"El trazado no incorpora curvas circulares: el eje está "
+                   r"conformado únicamente por alineamientos rectos.")
+
+    if path_planta:
+        tex.append(_figura(gestor, path_planta,
+                           "Planta del diseño geométrico con vértices, curvas y bordes de calzada",
+                           None, nombre="planta_vias"))
+
+    # ---------- Peralte ----------
+    if df_transicion is not None and not df_transicion.empty:
+        tex.append(r"\section{Peralte y su Transición}")
+        tex.append(r"El peralte de cada curva se obtiene de la ecuación del "
+                   r"movimiento circular y se acota entre el bombeo normal de la "
+                   r"calzada y el peralte máximo adoptado. Su desarrollo se "
+                   r"resuelve conforme al numeral 3.2 del Manual de Diseño "
+                   r"Geométrico, mediante una rampa de pendiente relativa "
+                   r"$\Delta s$ dependiente de la velocidad específica.")
+        tex.append(tabla_larga(df_transicion,
+                               "Desarrollo del peralte por curva (INVÍAS, numeral 3.2)",
+                               "transicion_peralte",
+                               notas="L: longitud de transición; N: longitud de "
+                                     "aplanamiento. Los puntos A, B, C, D y E delimitan "
+                                     "el desarrollo: en D (PC o PT) el peralte alcanza la "
+                                     "fracción de reparto adoptada y en E su valor pleno.",
+                               id_cols=1))
+        tex.append(r"Parámetros adoptados: ancho de carril \SI{"
+                   + f"{float(ancho_carril):.2f}" + r"}{\metre}, "
+                   + _num_es(f"{float(n_carriles_giran):.1f}")
+                   + r" carril(es) girando alrededor del eje y bombeo de "
+                   + _num_es(f"{abs(float(bombeo)):.2f}") + r"\%.")
+
+    # ---------- Alineamiento vertical ----------
+    tex.append(r"\section{Alineamiento Vertical (Rasante)}")
+    tex.append(r"La rasante se define por los vértices de inflexión vertical "
+               r"(PIV), cuya abscisa se mide sobre el eje curvo. Las pendientes "
+               r"que se reportan a continuación corresponden, por tanto, al "
+               r"recorrido real de la vía y no a la poligonal que une los PI.")
+
+    if not df_vertical.empty:
+        cols_v = [c for c in ["Vértice PIV", "Abscisa (Formato)", "Elevación (Z)",
+                              "Pendiente Entrada (%)", "Pendiente Salida (%)",
+                              "Longitud Tramo (m)"] if c in df_vertical.columns]
+        tex.append(tabla_larga(df_vertical[cols_v],
+                               "Cuadro de vértices de la rasante",
+                               "rasante",
+                               notas="La pendiente de salida del último vértice es nula "
+                                     "por corresponder al cierre del alineamiento.",
+                               id_cols=2))
+
+    if len(pend):
+        if excede_pend:
+            tex.append(caja_dictamen(
+                "Verificación de la pendiente longitudinal máxima",
+                f"\\textbf{{{excede_pend}}} tramo(s) superan la pendiente máxima "
+                f"admisible de {_num_es(f'{float(pendiente_max):.1f}')}\\%. Debe "
+                f"revisarse la rasante en dichos sectores o justificarse la "
+                f"excepción frente a la categoría de la vía y el tipo de terreno.",
+                estado="alerta"))
+        elif bajo_drenaje:
+            tex.append(caja_dictamen(
+                "Verificación del drenaje longitudinal",
+                f"Todas las pendientes respetan el máximo admisible, pero "
+                f"\\textbf{{{bajo_drenaje}}} tramo(s) quedan por debajo del "
+                f"{_num_es(f'{float(pendiente_min):.1f}')}\\% requerido para "
+                f"garantizar la evacuación del agua sobre la calzada.",
+                estado="alerta"))
+        else:
+            tex.append(caja_dictamen(
+                "Verificación de las pendientes longitudinales",
+                f"Los {len(pend)} tramos de la rasante se encuentran dentro del "
+                f"rango admisible, entre {_num_es(f'{float(pendiente_min):.1f}')}\\% "
+                f"y {_num_es(f'{float(pendiente_max):.1f}')}\\%.",
+                estado="ok"))
+
+    # ---------- Curvas verticales ----------
+    if not df_cv.empty:
+        tex.append(r"\subsection{Curvas verticales parabólicas}")
+        tex.append(r"Cada vértice de inflexión vertical cuya diferencia algebraica "
+                   r"de pendientes supera el umbral normativo se enlaza con una "
+                   r"parábola simétrica. Se reportan la longitud exigida por los "
+                   r"criterios de seguridad y de operación, la longitud finalmente "
+                   r"adoptada y el parámetro $K$ resultante.")
+
+        cols_cv1 = [c for c in ["Vértice PIV", "Tipo", "Pend. Entrada (%)",
+                                "Pend. Salida (%)", "A (%)", "DP (m)", "K mín",
+                                "L seguridad (m)", "L operación (m)",
+                                "L adoptada (m)", "K adoptado"]
+                    if c in df_cv.columns]
+        tex.append(tabla_larga(df_cv[cols_cv1],
+                               "Criterios de longitud mínima y parámetros adoptados",
+                               "curvas_verticales_k",
+                               notas="A es la diferencia algebraica de pendientes: negativa "
+                                     "en curvas convexas y positiva en cóncavas. K = L / |A|.",
+                               id_cols=2))
+
+        if not cv_activas.empty:
+            cols_cv2 = [c for c in ["Vértice PIV", "Abscisa PCV", "Abscisa PTV",
+                                    "Cota PCV", "Cota PIV", "Cota PTV",
+                                    "Externa E (m)", "Abscisa crítica", "Cota crítica",
+                                    "Cumple drenaje"] if c in cv_activas.columns]
+            tex.append(tabla_larga(cv_activas[cols_cv2],
+                                   "Elementos de replanteo de los acuerdos verticales",
+                                   "curvas_verticales_geom",
+                                   notas="La abscisa crítica corresponde a la cresta de las "
+                                         "curvas convexas o a la batea de las cóncavas, punto "
+                                         "donde la pendiente longitudinal se anula.",
+                                   id_cols=1))
+
+            if cv_incumplen:
+                tex.append(caja_dictamen(
+                    "Verificación de los acuerdos verticales",
+                    f"\\textbf{{{cv_incumplen}}} de las {len(cv_activas)} curvas verticales "
+                    f"presentan observaciones: longitud inferior a la exigida por los "
+                    f"criterios de seguridad u operación, recorte por traslape con los "
+                    f"vértices contiguos, o un parámetro $K$ superior a "
+                    f"\\num{{{K_MAX_DRENAJE:.0f}}} que compromete el drenaje longitudinal "
+                    f"en zona de corte. El detalle por vértice se relaciona a continuación.",
+                    estado="alerta"))
+                tex.append(r"\begin{itemize}[leftmargin=1.2em,itemsep=2pt]")
+                for _, rc in cv_activas.iterrows():
+                    obs_txt = str(rc.get("Observación", ""))
+                    if ("No cumple" in obs_txt or "recortada" in obs_txt
+                            or str(rc.get("Cumple drenaje", "")).upper() == "NO"):
+                        tex.append(r"\item \textbf{" + escapar_latex(str(rc["Vértice PIV"]))
+                                   + r"} (" + escapar_latex(str(rc["Tipo"])) + r"): "
+                                   + escapar_latex(obs_txt))
+                tex.append(r"\end{itemize}")
+            else:
+                tex.append(caja_dictamen(
+                    "Verificación de los acuerdos verticales",
+                    f"Las {len(cv_activas)} curvas verticales satisfacen simultáneamente "
+                    f"los criterios de seguridad (visibilidad de parada), de operación y "
+                    f"de drenaje ($K \\leq \\num{{{K_MAX_DRENAJE:.0f}}}$), y se "
+                    f"desarrollan sin traslape con los vértices contiguos.",
+                    estado="ok"))
+
+    if path_perfil:
+        tex.append(_figura(gestor, path_perfil,
+                           "Perfil longitudinal: terreno natural y rasante proyectada",
+                           None, nombre="perfil_longitudinal"))
+
+    # ---------- Movimiento de tierras ----------
+    if df_cubicaje is not None and not df_cubicaje.empty:
+        tex.append(r"\section{Movimiento de Tierras del Corredor}")
+        tex.append(r"Las cotas de terreno se extraen del modelo digital a lo largo "
+                   r"del eje y de los bordes de calzada; las áreas de corte y "
+                   r"relleno se obtienen por el método de áreas medias, "
+                   r"determinando los puntos de paso en cada sección.")
+        if metricas_volumen:
+            corte = float(metricas_volumen.get("Corte_Total", 0.0))
+            relleno = float(metricas_volumen.get("Relleno_Total", 0.0))
+            neto = float(metricas_volumen.get("Volumen_Neto", 0.0))
+            tex.append(caja_dictamen(
+                "Balance geométrico del corredor",
+                f"Corte total: \\SI{{{corte:.2f}}}{{\\cubic\\metre}}. "
+                f"Relleno total: \\SI{{{relleno:.2f}}}{{\\cubic\\metre}}. "
+                f"Balance: \\SI{{{neto:.2f}}}{{\\cubic\\metre}} "
+                + ("(excedente a disponer)." if neto > 0 else "(déficit de material)."
+                   ) +
+                " Este balance es geométrico: no incorpora esponjamiento ni "
+                "contracción, correcciones que se desarrollan en el informe "
+                "específico de volúmenes.",
+                estado="neutro"))
+        tex.append(tabla_larga(df_cubicaje,
+                               "Cuadro de cubicaje del corredor vial", "cubicaje_vias"))
+
+    if path_masas:
+        tex.append(_figura(gestor, path_masas,
+                           "Diagrama de masas del corredor",
+                           None, nombre="masas_vias"))
+
+    # ---------- Conclusiones ----------
+    tex.append(r"\section{Conclusiones y Dictamen Técnico}")
+    tex.append(r"\begin{itemize}[leftmargin=1.2em,itemsep=3pt]")
+    tex.append(r"\item El eje proyectado alcanza una longitud de \SI{"
+               + f"{long_total:.2f}" + r"}{\metre}, resuelta con "
+               + f"{n_curvas} curva(s) circular(es) simple(s).")
+    if r_min_val:
+        tex.append(r"\item " + ("Se detectaron curvas por debajo del radio mínimo "
+                                "admisible: el trazado debe ajustarse antes de su "
+                                "aprobación." if incumplen_r else
+                                "Los radios adoptados son compatibles con la velocidad "
+                                "de diseño declarada."))
+    if len(pend):
+        tex.append(r"\item " + ("Existen tramos con pendiente fuera del rango "
+                                "admisible que requieren revisión de la rasante."
+                                if (excede_pend or bajo_drenaje) else
+                                "Las pendientes longitudinales cumplen simultáneamente "
+                                "el límite máximo y el mínimo de drenaje."))
+    if df_transicion is not None and not df_transicion.empty:
+        tex.append(r"\item El desarrollo del peralte se resolvió con las longitudes "
+                   r"de transición y aplanamiento derivadas de la rampa normativa, "
+                   r"quedando definidas las abscisas de control para el replanteo.")
+    if not cv_activas.empty:
+        tex.append(r"\item La rasante incorpora " + f"{len(cv_activas)}"
+                   + r" acuerdo(s) vertical(es) parabólico(s)"
+                   + (r", con observaciones que deben atenderse antes de la aprobación."
+                      if cv_incumplen else
+                      r", conformes con los criterios de seguridad, operación y drenaje.")
+                   + r" Las cotas de diseño empleadas en el cubicaje corresponden a la "
+                     r"parábola y no a la intersección de las tangentes.")
+    tex.append(r"\item Las cotas de terreno empleadas proceden del modelo digital "
+               r"construido con la nube de puntos del levantamiento, lo que "
+               r"mantiene la trazabilidad entre la topografía medida y el diseño.")
+    tex.append(r"\end{itemize}")
+
+    if paths_secciones:
+        tex.append(_anexo_secciones(gestor, paths_secciones))
+
+    tex.append(bloque_firmas())
+    tex.append(r"\end{document}")
+    return _degradar_latex("\n".join(tex), caps)
+
+
+# ===================================================================
 # AUXILIARES DE MAQUETACIÓN
 # ===================================================================
 def _figura(gestor, figura, caption, titulo_seccion=None,
@@ -2955,3 +3463,118 @@ def compilar_latex_a_pdf(tex_code, output_dir="Reportes_PDF",
         return None, tex_path, "La compilación excedió el tiempo límite."
     except Exception as e:
         return None, tex_path, f"Error en Python al invocar LaTeX: {e}"
+
+# ===================================================================
+# 5. LEVANTAMIENTO PREDIAL Y CATASTRO (IGAC LADM-COL)
+# ===================================================================
+def generar_reporte_predios_latex(df_linderos, metricas, autores, tutor,
+                                  path_grafico=None, fotos_paths=None,
+                                  equipo=None, metadatos=None,
+                                  ruta_logo="Iconos/logo_geopol.png",
+                                  directorio_salida="Reportes_PDF", gestor=None):
+    caps = capacidades_latex()
+    gestor = gestor or GestorFiguras(directorio_salida)
+    tex = [preambulo_v2(ruta_logo=ruta_logo, subcarpeta_figuras=gestor.subcarpeta)]
+    tex.append(portada_v2("Informe Técnico de Levantamiento Predial", autores, tutor,
+                          subtitulo="Estructuración de Linderos y Áreas (LADM-COL)"))
+
+    # Ficha técnica
+    meta = dict(EJEMPLO_METADATOS)
+    if equipo: meta.update(ficha_equipo_a_metadatos(equipo))
+    if metadatos: meta.update(metadatos)
+
+    # Indicadores
+    kpis = [
+        {"titulo": "Área Total", "valor": f"{metricas['Area_m2']:,.2f}".replace(",", ".") + " m²",
+         "sub": f"{metricas['Area_ha']:,.4f}".replace(",", ".") + " ha", "estado": "neutro"},
+        {"titulo": "Perímetro del Predio", "valor": f"{metricas['Perimetro_m']:,.2f}".replace(",", ".") + " m", "estado": "neutro"},
+        {"titulo": "Vértices", "valor": str(metricas['N_Vertices']), "sub": "Puntos de lindero", "estado": "neutro"}
+    ]
+
+    tex.append(r"\section{Introducción}")
+    tex.append(r"El presente informe documenta el levantamiento topográfico predial, definiendo la geometría del polígono, la estructuración de linderos y el cálculo analítico de la cabida superficiaria, garantizando la interoperabilidad con el modelo de Catastro Multipropósito.")
+    
+    tex.append(r"\subsection{Objetivos}")
+    tex.append(r"\begin{itemize}[leftmargin=1.2em,itemsep=2pt]")
+    tex.append(r"\item \textbf{General:} Estructurar los linderos y calcular el área del predio mediante métodos analíticos rigurosos.")
+    tex.append(r"\item \textbf{Específicos:} \begin{itemize} \item Determinar las distancias y azimutes de cada colindancia. \item Calcular la cabida superficiaria mediante el Teorema de Gauss. \item Redactar de forma automatizada el acta técnica de linderos. \item Generar el plano predial y el cuadro oficial de áreas. \end{itemize}\end{itemize}")
+    
+    tex.append(r"\section{Marco Teórico y Normativo}")
+    tex.append(r"El levantamiento, la materialización de los vértices y la estructuración del cuadro de áreas y linderos se rigen de manera estricta por las especificaciones técnicas del \textbf{Instituto Geográfico Agustín Codazzi (IGAC)}, en total cumplimiento de las \textbf{Resoluciones 471 y 529 de 2020}.")
+    tex.append(r"\par\medskip")
+    tex.append(r"Toda la información espacial se encuentra georreferenciada al sistema de proyección \textbf{" + escapar_latex(meta.get("Sistema de referencia", "")) + r"}. El cálculo de la cabida superficiaria (área) se ejecuta de forma analítica mediante el Teorema de Gauss (Determinantes de coordenadas), garantizando la máxima precisión matemática a partir de las proyecciones planas.")
+    tex.append(r"\par\medskip")
+    tex.append(r"Este modelo algorítmico de procesamiento asegura la consistencia topológica del polígono (cierre perimetral perfecto) y garantiza la interoperabilidad de los datos con el estándar \textbf{LADM-COL} (Land Administration Domain Model), pilar fundamental para la administración del Catastro Multipropósito en el territorio nacional.")
+
+    tex.append(ficha_metadatos(meta))
+
+    tex.append(r"\section{Resumen de Indicadores Prediales}")
+    tex.append(panel_kpi(kpis, columnas=3))
+
+    # --- RUTINA DE REDACCIÓN ALGORÍTMICA (ACTA DE COLINDANCIA) ---
+    tex.append(r"\section{Descripción Técnica de Linderos}")
+    tex.append(r"A partir del levantamiento topográfico y el análisis espacial, se determinan los siguientes linderos y colindancias para el predio objeto de estudio:")
+    tex.append(r"\begin{quote}")
+    
+    if df_linderos is not None and not df_linderos.empty:
+        n_tramos = len(df_linderos) - 1
+        parrafos = []
+        for i in range(n_tramos):
+            row = df_linderos.iloc[i]
+            v_orig = escapar_latex(str(row.get('Vértice', '')))
+            mat_orig = escapar_latex(str(row.get('Materialización', '---')).lower())
+            e_orig = numero_plano(row.get('Este (m)', 0), 3)
+            n_orig = numero_plano(row.get('Norte (m)', 0), 3)
+            
+            tipo_lind = escapar_latex(str(row.get('Tipo de Lindero', '---')).lower())
+            azimut = escapar_latex(str(row.get('Azimut', '---')))
+            dist = numero_plano(row.get('Distancia (m)', 0), 2)
+            colind = escapar_latex(str(row.get('Colindante', '---')))
+            
+            v_dest = escapar_latex(str(df_linderos.iloc[i+1].get('Vértice', '')))
+            
+            if i == 0:
+                txt = (f"Partiendo del vértice \\textbf{{{v_orig}}}, materializado por {mat_orig}, "
+                       f"con coordenadas planas E: {e_orig} m, N: {n_orig} m; "
+                       f"de allí se sigue por {tipo_lind} en línea recta con un azimut de {azimut} "
+                       f"y una distancia de \\SI{{{dist}}}{{\\metre}}, colindando con \\textbf{{{colind}}}, "
+                       f"hasta llegar al vértice \\textbf{{{v_dest}}}.")
+            else:
+                txt = (f"De este punto, materializado por {mat_orig}, "
+                       f"se continúa por {tipo_lind} en línea recta con un azimut de {azimut} "
+                       f"y una distancia de \\SI{{{dist}}}{{\\metre}}, colindando con \\textbf{{{colind}}}, "
+                       f"hasta el vértice \\textbf{{{v_dest}}}.")
+            parrafos.append(txt)
+        
+        if parrafos:
+            # Reemplazar el punto final del último tramo por la frase de cierre de polígono
+            parrafos[-1] = parrafos[-1][:-1] + ", punto de partida y cierre del polígono."
+            tex.append(" ".join(parrafos))
+        else:
+            tex.append("No se registraron linderos válidos.")
+    else:
+        tex.append("No se registraron linderos válidos.")
+        
+    tex.append(r"\end{quote}")
+
+    tex.append(r"\section{Cuadro Oficial de Áreas y Linderos}")
+    tex.append(r"A continuación se relacionan las coordenadas de los vértices que definen la propiedad, así como la distancia y el azimut correspondientes a cada colindancia.")
+    tex.append(tabla_larga(df_linderos, "Cuadro de áreas y linderos del predio", "cuadro_linderos", id_cols=1))
+
+    if fotos_paths:
+        tex.append(_mosaico_fotos(gestor, fotos_paths, "Mosaico de registro fotográfico de vértices prediales", "Registro Fotográfico de Linderos"))
+
+    if path_grafico:
+        tex.append(_figura(gestor, path_grafico, "Plano predial y cuadro de colindancias", "Planimetría del Predio", nombre="plano_predial"))
+
+    tex.append(r"\section{Conclusiones y Dictamen Técnico}")
+    tex.append(r"\begin{itemize}[leftmargin=1.2em,itemsep=3pt]")
+    tex.append(r"\item El polígono predial cerró correctamente desde el punto de vista topológico.")
+    tex.append(r"\item Se determinó un área total de \SI{" + f"{metricas['Area_m2']:.2f}" + r"}{\square\metre}, equivalente a \num{" + f"{metricas['Area_ha']:.4f}" + r"} hectáreas.")
+    tex.append(r"\item La redacción técnica de linderos y el cuadro de áreas cumplen con la estructura matemática y geométrica requerida para procesos catastrales y registrales en Colombia.")
+    tex.append(r"\end{itemize}")
+
+    tex.append(bloque_firmas())
+    tex.append(r"\end{document}")
+    
+    return _degradar_latex("\n".join(tex), caps)

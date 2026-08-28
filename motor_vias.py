@@ -417,7 +417,9 @@ def procesar_alineamiento_horizontal(df_pis, v_diseno=60, e_max=8.0):
 
             delta_dms = decimal_a_dms_string(abs(delta_deg)) + f" {sentido[0]}"
 
-            # Pendiente del tramo medida sobre el EJE (coherente con la rasante)
+            # Pendiente de ENTRADA al vértice, medida sobre el EJE (coherente con
+            # la rasante). La de salida se completa al final, cuando ya se conoce
+            # la abscisa del vértice siguiente.
             dx_absc = abs_pi - abscisas_pi[-1]
             dz_tramo = cota_pi - cota_ant
             m_tramo = (dz_tramo / dx_absc * 100) if dx_absc > 1e-9 else 0.0
@@ -433,7 +435,8 @@ def procesar_alineamiento_horizontal(df_pis, v_diseno=60, e_max=8.0):
                 "Ord. Media (m)": round(ordenada_media, 3),
                 "Cuerda Larga (m)": round(cuerda_larga, 3),
                 "Peralte (%)": round(peralte_final, 3),
-                "Pendiente (%)": round(m_tramo, 3),
+                "Pend. Entrada (%)": round(m_tramo, 3),
+                "Pend. Salida (%)": 0.000,   # se completa al cerrar el alineamiento
                 "Abscisa PC": formato_abscisa(abs_pc),
                 "Abscisa PI": formato_abscisa(abs_pi),
                 "Abscisa PT": formato_abscisa(abs_pt),
@@ -493,9 +496,21 @@ def procesar_alineamiento_horizontal(df_pis, v_diseno=60, e_max=8.0):
     pendientes_salida.append(0.000)  # Ajuste de cierre final
     longitudes_tramo.append(0.000)
 
+    # Pendiente de ENTRADA a cada PIV: es la de salida del vértice anterior.
+    pendientes_entrada = [0.000] + pendientes_salida[:-1]
+
     abs_format_list = [formato_abscisa(a) for a in abscisas_pi]
 
     df_reporte = pd.DataFrame(reporte_curvas)
+
+    # Se completa la pendiente de salida de cada curva a partir de la rasante,
+    # de modo que el cuadro de curvas y la tabla de PIVs no puedan discrepar.
+    if not df_reporte.empty:
+        pos_piv = {nombre: i for i, nombre in enumerate(df_pis["PI"].tolist())}
+        df_reporte["Pend. Salida (%)"] = [
+            pendientes_salida[pos_piv[v]] if v in pos_piv else 0.000
+            for v in df_reporte["Vértice (PI)"]
+        ]
     df_dibujo = pd.DataFrame({"Este": coordenadas_eje_e, "Norte": coordenadas_eje_n})
 
     df_vertical = pd.DataFrame({
@@ -503,8 +518,278 @@ def procesar_alineamiento_horizontal(df_pis, v_diseno=60, e_max=8.0):
         "Abscisa": abscisas_pi,
         "Abscisa (Formato)": abs_format_list,
         "Elevación (Z)": cotas_pi,
+        "Pendiente Entrada (%)": pendientes_entrada,
         "Pendiente Salida (%)": pendientes_salida,
         "Longitud Tramo (m)": longitudes_tramo,
     })
 
     return df_reporte, df_dibujo, df_vertical
+
+
+# ===================================================================
+# CURVAS VERTICALES PARABÓLICAS — INVIAS 2008, capítulo 4
+# -------------------------------------------------------------------
+# Los tramos consecutivos de rasante se enlazan con parábolas de eje
+# vertical cuando la diferencia algebraica de pendientes supera el 1%
+# en carreteras pavimentadas (2% en las demás).
+#
+# Parámetro de curvatura:      K = L / |A|
+#   L = longitud de la curva vertical (m)
+#   A = diferencia algebraica de pendientes (%),  A = g2 - g1
+#
+# Ecuación de la parábola simétrica, con x medido desde el PCV:
+#       y(x) = y_PCV + (g1/100)·x + (A / (200·L))·x²
+#
+# Externa (corrimiento vertical en el PIV):   E = |A|·L / 800
+#
+# CRITERIOS DE LONGITUD MÍNIMA
+#   Seguridad (visibilidad de parada), caso DP < L, que es el adoptado
+#   por el Manual porque cubre al otro:
+#       Convexa:  L = A·DP² / (100·(√(2·h1) + √(2·h2))²)
+#                 con h1 = 1.08 m (ojo del conductor) y h2 = 0.60 m
+#                 (obstáculo)  ->  L = A·DP² / 658.4
+#       Cóncava:  L = A·DP² / (122 + 3.5·DP)
+#                 (faros a 0.60 m y divergencia de 1°)
+#   Operación:  L = 0.6 · VCV   (evita el cambio súbito de pendiente)
+#   Drenaje:    K ≤ 50 en curvas en zona de corte
+# ===================================================================
+
+# Alturas normativas para la visibilidad de parada
+_H1_OJO = 1.08
+_H2_OBSTACULO = 0.60
+# (√(2·1.08) + √(2·0.60))² = 658.4 al pasar A a porcentaje
+_CTE_CONVEXA = 100.0 * (np.sqrt(2 * _H1_OJO) + np.sqrt(2 * _H2_OBSTACULO)) ** 2
+
+# Coeficiente de fricción longitudinal para la distancia de parada
+_V_FRIC_L = [30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
+_F_LONGITUDINAL = [0.400, 0.380, 0.360, 0.340, 0.325, 0.310, 0.305, 0.300, 0.295, 0.290]
+
+# K máximo por drenaje (AASHTO 2004, adoptado por el Manual)
+K_MAX_DRENAJE = 50.0
+
+
+def coeficiente_friccion_longitudinal(v_especifica):
+    """Coeficiente de fricción longitudinal para la velocidad dada."""
+    return float(np.interp(float(v_especifica), _V_FRIC_L, _F_LONGITUDINAL))
+
+
+# Distancia de visibilidad de parada tabulada (Manual INVIAS, terreno plano)
+_V_DP = [30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
+_DP_TABLA = [35, 50, 65, 85, 105, 130, 160, 185, 220, 250]
+
+
+def distancia_visibilidad_parada(v_especifica, pendiente=0.0, tiempo_reaccion=2.5,
+                                 usar_tabla=True):
+    """
+    Distancia de visibilidad de parada (m).
+
+    Por defecto se toman los valores TABULADOS del Manual, que son los
+    que dan origen a los K mínimos publicados. Cuando se declara una
+    pendiente distinta de cero, o se pide explícitamente, se emplea la
+    expresión analítica:
+
+        DP = (V·t)/3.6 + V² / (254·(f_l + i/100))
+
+    donde i es la pendiente longitudinal en % (positiva en ascenso, que
+    acorta la distancia; negativa en descenso, que la alarga).
+    """
+    v = float(v_especifica)
+    i = float(pendiente)
+
+    if usar_tabla and abs(i) < 1e-9:
+        return float(np.interp(v, _V_DP, _DP_TABLA))
+
+    f_l = coeficiente_friccion_longitudinal(v)
+    denom = 254.0 * (f_l + i / 100.0)
+    if denom <= 0:
+        denom = 254.0 * f_l          # descenso muy fuerte: se acota
+    return (v * float(tiempo_reaccion)) / 3.6 + (v ** 2) / denom
+
+
+def longitud_minima_curva_vertical(a_abs, v_especifica, tipo, dp=None):
+    """
+    Longitud mínima (m) por seguridad y por operación.
+    Devuelve (L_seguridad, L_operacion, DP, K_min_seguridad).
+    """
+    a_abs = abs(float(a_abs))
+    dp = float(dp) if dp is not None else distancia_visibilidad_parada(v_especifica)
+
+    if str(tipo).lower().startswith("conv"):
+        k_min = (dp ** 2) / _CTE_CONVEXA
+    else:
+        k_min = (dp ** 2) / (122.0 + 3.5 * dp)
+
+    l_seguridad = k_min * a_abs
+    l_operacion = 0.6 * float(v_especifica)
+    return l_seguridad, l_operacion, dp, k_min
+
+
+def _redondear_arriba(valor, paso):
+    paso = float(paso)
+    if paso <= 0:
+        return float(valor)
+    return float(np.ceil(float(valor) / paso) * paso)
+
+
+def calcular_curvas_verticales(df_vertical, v_diseno=60, pavimentada=True,
+                               longitudes_adoptadas=None, redondeo=10.0,
+                               dp_manual=None):
+    """
+    Calcula la curva vertical parabólica simétrica de cada PIV interior.
+
+    df_vertical         : tabla de PIVs de procesar_alineamiento_horizontal
+    longitudes_adoptadas: dict {nombre_PIV: L} para imponer longitudes
+    redondeo            : múltiplo al que se redondea L hacia arriba
+    dp_manual           : distancia de visibilidad de parada impuesta
+
+    Devuelve un DataFrame con la memoria de cálculo de cada curva.
+    """
+    if df_vertical is None or len(df_vertical) < 3:
+        return pd.DataFrame()
+
+    df = df_vertical.reset_index(drop=True)
+    umbral_a = 1.0 if pavimentada else 2.0
+    longitudes_adoptadas = longitudes_adoptadas or {}
+
+    filas = []
+    for i in range(1, len(df) - 1):
+        nombre = df.loc[i, "Vértice PIV"]
+        x_piv = float(df.loc[i, "Abscisa"])
+        y_piv = float(df.loc[i, "Elevación (Z)"])
+        g1 = float(df.loc[i - 1, "Pendiente Salida (%)"])
+        g2 = float(df.loc[i, "Pendiente Salida (%)"])
+        a_alg = g2 - g1
+
+        # Espacio disponible hasta los vértices contiguos
+        tang_ant = x_piv - float(df.loc[i - 1, "Abscisa"])
+        tang_sig = float(df.loc[i + 1, "Abscisa"]) - x_piv
+        l_max_geom = 2.0 * min(tang_ant, tang_sig)
+
+        if abs(a_alg) < umbral_a:
+            filas.append({
+                "Vértice PIV": nombre,
+                "Abscisa PIV": round(x_piv, 3),
+                "Cota PIV": round(y_piv, 3),
+                "Pend. Entrada (%)": round(g1, 3),
+                "Pend. Salida (%)": round(g2, 3),
+                "A (%)": round(a_alg, 3),
+                "Tipo": "Sin curva",
+                "DP (m)": 0.0, "K mín": 0.0,
+                "L seguridad (m)": 0.0, "L operación (m)": 0.0,
+                "L adoptada (m)": 0.0, "K adoptado": 0.0,
+                "Abscisa PCV": "", "Abscisa PTV": "",
+                "Cota PCV": round(y_piv, 3), "Cota PTV": round(y_piv, 3),
+                "Externa E (m)": 0.0,
+                "Abscisa crítica": "", "Cota crítica": "",
+                "Cumple drenaje": "N/A",
+                "Observación": f"|A| = {abs(a_alg):.3f}% < {umbral_a:.0f}%: no requiere curva vertical.",
+            })
+            continue
+
+        tipo = "Convexa" if a_alg < 0 else "Cóncava"
+        l_seg, l_ope, dp, k_min = longitud_minima_curva_vertical(
+            a_alg, v_diseno, tipo, dp=dp_manual)
+
+        if nombre in longitudes_adoptadas and longitudes_adoptadas[nombre]:
+            l_adop = float(longitudes_adoptadas[nombre])
+            origen = "impuesta por el proyectista"
+        else:
+            l_adop = _redondear_arriba(max(l_seg, l_ope), redondeo)
+            origen = "mínima normativa redondeada"
+
+        obs = []
+        if l_adop > l_max_geom > 0:
+            l_adop = float(np.floor(l_max_geom / max(redondeo, 1e-9)) * max(redondeo, 1e-9))
+            l_adop = max(l_adop, 0.0)
+            obs.append(f"Longitud recortada a {l_adop:.3f} m por traslape con los "
+                       f"vértices contiguos: revise la separación entre PIV.")
+        if l_adop < l_seg - 1e-6:
+            obs.append(f"No cumple el criterio de seguridad (exige {l_seg:.3f} m).")
+        if l_adop < l_ope - 1e-6:
+            obs.append(f"No cumple el criterio de operación (exige {l_ope:.3f} m).")
+
+        k_adop = l_adop / abs(a_alg) if abs(a_alg) > 1e-9 else 0.0
+        cumple_dren = "SI" if k_adop <= K_MAX_DRENAJE else "NO"
+        if cumple_dren == "NO":
+            obs.append(f"K = {k_adop:.3f} supera el máximo de {K_MAX_DRENAJE:.0f} "
+                       f"por drenaje en zona de corte.")
+
+        x_pcv = x_piv - l_adop / 2.0
+        x_ptv = x_piv + l_adop / 2.0
+        y_pcv = y_piv - (g1 / 100.0) * (l_adop / 2.0)
+        y_ptv = y_piv + (g2 / 100.0) * (l_adop / 2.0)
+        externa = abs(a_alg) * l_adop / 800.0
+
+        # Punto crítico (cresta o batea): dy/dx = 0
+        x_crit_txt, y_crit_txt = "", ""
+        if abs(a_alg) > 1e-9:
+            x_rel = -g1 * l_adop / a_alg
+            if 0.0 < x_rel < l_adop:
+                y_crit = y_pcv + (g1 / 100.0) * x_rel + (a_alg / (200.0 * l_adop)) * x_rel ** 2
+                x_crit_txt = formato_abscisa(x_pcv + x_rel)
+                y_crit_txt = round(y_crit, 3)
+
+        filas.append({
+            "Vértice PIV": nombre,
+            "Abscisa PIV": round(x_piv, 3),
+            "Cota PIV": round(y_piv, 3),
+            "Pend. Entrada (%)": round(g1, 3),
+            "Pend. Salida (%)": round(g2, 3),
+            "A (%)": round(a_alg, 3),
+            "Tipo": tipo,
+            "DP (m)": round(dp, 3),
+            "K mín": round(k_min, 3),
+            "L seguridad (m)": round(l_seg, 3),
+            "L operación (m)": round(l_ope, 3),
+            "L adoptada (m)": round(l_adop, 3),
+            "K adoptado": round(k_adop, 3),
+            "Abscisa PCV": formato_abscisa(x_pcv),
+            "Abscisa PTV": formato_abscisa(x_ptv),
+            "Cota PCV": round(y_pcv, 3),
+            "Cota PTV": round(y_ptv, 3),
+            "Externa E (m)": round(externa, 3),
+            "Abscisa crítica": x_crit_txt,
+            "Cota crítica": y_crit_txt,
+            "Cumple drenaje": cumple_dren,
+            "Observación": " ".join(obs) if obs else f"Curva {tipo.lower()} conforme ({origen}).",
+            # Auxiliares numéricos para el cálculo de la rasante
+            "_x_pcv": x_pcv, "_x_ptv": x_ptv, "_y_pcv": y_pcv,
+            "_g1": g1, "_a": a_alg, "_L": l_adop,
+        })
+
+    return pd.DataFrame(filas)
+
+
+def cota_rasante(abscisas, df_vertical, df_curvas_verticales=None):
+    """
+    Elevación de la rasante en cada abscisa.
+
+    Sin curvas verticales interpola linealmente entre PIVs. Con ellas,
+    sustituye el tramo comprendido entre PCV y PTV por la parábola
+    correspondiente, de modo que el perfil, las cotas de diseño y el
+    cubicaje reflejen el acuerdo vertical real y no el vértice anguloso.
+    """
+    abscisas = np.asarray(abscisas, dtype=float)
+    df_v = df_vertical.sort_values("Abscisa")
+    z = np.interp(abscisas, df_v["Abscisa"].to_numpy(dtype=float),
+                  df_v["Elevación (Z)"].to_numpy(dtype=float))
+
+    if df_curvas_verticales is None or df_curvas_verticales.empty:
+        return z
+    if "_L" not in df_curvas_verticales.columns:
+        return z
+
+    for _, r in df_curvas_verticales.iterrows():
+        L = float(r["_L"])
+        if L <= 0:
+            continue
+        x_pcv, x_ptv = float(r["_x_pcv"]), float(r["_x_ptv"])
+        y_pcv, g1, a = float(r["_y_pcv"]), float(r["_g1"]), float(r["_a"])
+
+        dentro = (abscisas >= x_pcv) & (abscisas <= x_ptv)
+        if not np.any(dentro):
+            continue
+        x_rel = abscisas[dentro] - x_pcv
+        z[dentro] = y_pcv + (g1 / 100.0) * x_rel + (a / (200.0 * L)) * x_rel ** 2
+
+    return z
