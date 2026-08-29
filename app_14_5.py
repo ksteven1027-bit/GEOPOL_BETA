@@ -1060,9 +1060,9 @@ def renderizar_banner_proyecto():
 with st.sidebar:
     # Logo corporativo interactivo que redirige al inicio
     mostrar_icono("logo_geopol.svg", fallback_emoji="🌍", width=180, shadow=False, hover_effect=True, link_nav="Inicio")
-      st.markdown("---")
+    st.markdown("---")
 
-      if st.session_state.get("proyecto_actual"):
+    if st.session_state.get("proyecto_actual"):
         st.info(f"**Proyecto Activo:**\n### {st.session_state.get('proyecto_actual')}")
 
         datos_gp = generar_datos_guardado()
@@ -1136,6 +1136,9 @@ with st.sidebar:
     st.markdown("<p style='text-align:center; font-size:12px; color:gray;'>Kevin Cubillos & Sergio Barbosa</p>", unsafe_allow_html=True)
 
 
+# ===================================================================
+# PANTALLAS PRINCIPALES (Fuera de la barra lateral)
+# ===================================================================
 if st.session_state.modo_app in ["Inicio", "Menu_Principal"]:
     col_logo, col_info = st.columns([1, 4])
     with col_logo:
