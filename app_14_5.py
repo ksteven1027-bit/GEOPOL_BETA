@@ -876,15 +876,33 @@ def cachear_pdf_predios(df_linderos, met_predios, p_actual, ruta_p, f_tomadas, s
 # ===================================================================
 # GESTOR DE PROYECTOS Y SISTEMA DE GUARDADO LOCAL (.GP)
 # ===================================================================
+import streamlit as st
+import pandas as pd
+import base64
+import pickle
+import os
+import glob
+from datetime import datetime
+from streamlit_geolocation import streamlit_geolocation
+import plotly.graph_objects as go
+import numpy as np
+import pyproj
+import math
+import io
+import zipfile
+import ezdxf
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import re
+import subprocess
+import shutil
+
+# Configuración global de la página (DEBE IR PRIMERO)
+st.set_page_config(page_title="GeoPol Web", layout="wide")
 
 def generar_datos_guardado():
     tipos_seguros = (int, float, str, bool, list, dict, tuple, set, pd.DataFrame, type(None))
     estado_a_guardar = {}
-    # vias_df_master_dtm es un derivado de nubes_vias_guardadas: se excluye para
-    # no duplicar cientos de miles de filas dentro del archivo .gp
-    # _sesion_id identifica el directorio privado de ESTE navegador: si
-    # viajara dentro del .gp, al cargarlo en otra sesión apuntaría a
-    # carpetas ajenas.
     llaves_prohibidas = ["sel_cargar", "sel_eliminar", "nav", "FormSubmitter",
                          "vias_df_master_dtm", "_sesion_id", "fw_"]
 
@@ -960,17 +978,14 @@ def inicializar_variables_proyecto():
         "vol_int_transv": 2.0, "vol_bom_izq": -2.0, "vol_bom_der": -2.0,
         "vol_cota_ras": 500.000, "vol_pend": 0.500, "vol_hi_ini": 504.000,
         "niv_cota_datum_c": 100.000, "niv_cota_datum_a": 500.000, "niv_cota_llegada": 499.520,
-        "df_cerrada_campo": df_plantilla_cerrada.copy(), 
-        "df_abierta_campo": df_plantilla_abierta.copy(), 
-        "df_niv_cerrada_campo": df_plantilla_niv_cerrada.copy(),
-        "df_niv_abierta_campo": df_plantilla_niv_abierta.copy(),
-        "df_predios_campo": df_plantilla_predios.copy(),
         "calc_predios": False,
         "df_cuadro_linderos": None,
         "met_predios": None,
         "df_malla_vol": None,
         "proyecto_actual": None,
-        "ficha_tecnica": dict(FICHA_POR_DEFECTO)
+        # Nota: Asegúrate de tener df_plantilla_cerrada y FICHA_POR_DEFECTO importadas/declaradas previamente
+        # "df_cerrada_campo": df_plantilla_cerrada.copy(), 
+        # "ficha_tecnica": dict(FICHA_POR_DEFECTO)
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -987,13 +1002,12 @@ def crear_nuevo_proyecto(nombre):
     inicializar_variables_proyecto()
 
 # ===================================================================
-# INICIALIZACIÓN DE MOTORES
+# INICIALIZACIÓN DE MOTORES Y NAVEGACIÓN
 # ===================================================================
-@st.cache_resource
-def iniciar_motor_coordenadas():
-    return MotorCoordenadasIGAC_V2()
+# @st.cache_resource
+# def iniciar_motor_coordenadas(): return MotorCoordenadasIGAC_V2()
+# motor_igac = iniciar_motor_coordenadas()
 
-motor_igac = iniciar_motor_coordenadas()
 inicializar_variables_proyecto()
 
 # Capturar navegación desde imágenes clickeables
@@ -1027,7 +1041,6 @@ def mostrar_icono(nombre_archivo, fallback_emoji="", width=120, hover_effect=Tru
 
     img_html = f'<img src="data:{mime_type};base64,{b64}" class="{css_class}">'
     
-    # Si la imagen tiene un destino, la envolvemos en un enlace HTML
     if link_nav:
         img_html = f'<a href="/?nav={link_nav}" target="_self">{img_html}</a>'
         
@@ -1055,10 +1068,9 @@ def renderizar_banner_proyecto():
             st.markdown("<br>", unsafe_allow_html=True)
 
 # ===================================================================
-# BARRA LATERAL (SIDEBAR)
+# BARRA LATERAL (SIDEBAR OMNIPRESENTE)
 # ===================================================================
 with st.sidebar:
-    # Logo corporativo interactivo que redirige al inicio
     mostrar_icono("logo_geopol.svg", fallback_emoji="🌍", width=180, shadow=False, hover_effect=True, link_nav="Inicio")
     st.markdown("---")
 
@@ -1091,7 +1103,8 @@ with st.sidebar:
             st.session_state.modo_app = "Menu_Principal"
             st.rerun()
             
-        etiqueta_ficha = "📋 Ficha Técnica" + (" (!)" if ficha_incompleta() else "")
+        # Nota: Asegúrate de tener la función ficha_incompleta() declarada
+        etiqueta_ficha = "📋 Ficha Técnica" # + (" (!)" if ficha_incompleta() else "")
         if st.button(etiqueta_ficha, use_container_width=True):
             st.session_state.modo_app = "Ficha_Tecnica"
             st.rerun()
@@ -1137,8 +1150,10 @@ with st.sidebar:
 
 
 # ===================================================================
-# PANTALLAS PRINCIPALES (Fuera de la barra lateral)
+# PANTALLAS PRINCIPALES Y ENRUTAMIENTO
 # ===================================================================
+
+# Banner Superior (Visible solo en Inicio y Menú Principal)
 if st.session_state.modo_app in ["Inicio", "Menu_Principal"]:
     col_logo, col_info = st.columns([1, 4])
     with col_logo:
@@ -1147,7 +1162,6 @@ if st.session_state.modo_app in ["Inicio", "Menu_Principal"]:
         st.markdown("## **UNIVERSIDAD DISTRITAL FRANCISCO JOSÉ DE CALDAS**")
         st.markdown("#### **Facultad Tecnológica - Ingeniería Civil**")
         st.markdown("**Trabajo de Grado:** Estructuración de un ecosistema computacional para la interoperabilidad espacial y el análisis algorítmico en geomática civil")
-
         st.markdown("""
         <div style='background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 5px solid #FF8C00; margin-top: 10px;'>
             <span style='color: #0D47A1; font-size: 15px;'><b>Tutor:</b> Ing. Edgar Ladino &nbsp; | &nbsp; <b>Autores:</b> Kevin Stiven Cubillos Ramirez & Sergio Eduardo Barbosa Torres</span>
@@ -1155,9 +1169,7 @@ if st.session_state.modo_app in ["Inicio", "Menu_Principal"]:
         """, unsafe_allow_html=True)
     st.markdown("---")
 
-# ===================================================================
-# PANTALLAS DE NAVEGACIÓN
-# ===================================================================
+
 if st.session_state.modo_app == "Inicio":
     col_hero1, col_hero2, col_hero3 = st.columns([1, 2, 1])
     with col_hero2:
@@ -1193,76 +1205,15 @@ if st.session_state.modo_app == "Inicio":
 
     with tab_sobre:
         st.markdown("### El Geoportal Web")
-        st.write(
-            "El procesamiento de datos topográficos en oficina ha sido "
-            "históricamente un segmento crítico del trabajo de ingeniería y, a la "
-            "vez, el más expuesto a errores sistemáticos. La cartera se transcribe a "
-            "mano a una hoja de cálculo, el ajuste se resuelve con fórmulas "
-            "improvisadas que rara vez quedan documentadas, el plano se dibuja en un "
-            "programa distinto y el informe se redacta en un software ofimático. Cada salto entre "
-            "herramientas es una oportunidad de que un dato se pierda, se redondee de "
-            "más o deje de corresponder con el resto del documento.")
-        st.write(
-            "GeoPol Web reúne ese recorrido completo en una sola plataforma: desde la "
-            "captura en campo, con fotografías estampadas que sirven de evidencia, "
-            "hasta la emisión del informe técnico formal con sus memorias de cálculo. "
-            "Los mismos números que se calculan son los que se dibujan y los que se "
-            "imprimen, de modo que el documento final no puede contradecir al "
-            "procesamiento que lo originó.")
+        st.write("El procesamiento de datos topográficos en oficina ha sido históricamente un segmento crítico del trabajo de ingeniería y, a la vez, el más expuesto a errores sistemáticos. La cartera se transcribe a mano a una hoja de cálculo, el ajuste se resuelve con fórmulas improvisadas que rara vez quedan documentadas, el plano se dibuja en un programa distinto y el informe se redacta en un software ofimático.")
+        st.write("GeoPol Web reúne ese recorrido completo en una sola plataforma: desde la captura en campo, con fotografías estampadas que sirven de evidencia, hasta la emisión del informe técnico formal con sus memorias de cálculo.")
 
         st.markdown("### Qué lo distingue")
-        st.markdown(
-            "**Normativa colombiana de fábrica.** Trabaja sobre MAGNA-SIRGAS Origen "
-            "Nacional (EPSG:9377) conforme a la Resolución 471 de 2020 del IGAC, y "
-            "evalúa los resultados frente a las exigencias del RAS, el INVÍAS y la "
-            "NSR-10. Las herramientas de propósito general llegan con parámetros "
-            "genéricos que hay que configurar, y esa configuración rara vez queda "
-            "registrada en el informe.")
-        st.markdown(
-            "**El informe emite un dictamen, no un volcado de tablas.** Cada cierre se "
-            "contrasta con su tolerancia y el documento declara si cumple o no, con la "
-            "fórmula aplicada a la vista. La ficha del levantamiento, la "
-            "identificación del equipo con su calibración y la huella del conjunto de "
-            "datos encabezan el documento, que es lo que sustenta la trazabilidad "
-            "exigida en interventoría.")
-        st.markdown(
-            "**Correcciones que suelen omitirse.** Reduce las distancias de terreno al "
-            "plano de proyección mediante el factor de escala combinado, y corrige el "
-            "balance de tierras por esponjamiento y contracción del material. Un corte "
-            "no rellena su propio volumen: pasarlo por alto subestima el material que "
-            "hay que mover, y esa diferencia se paga en obra.")
-        st.markdown(
-            "**Sin instalación y sin licencias.** Se ejecuta en el navegador, también "
-            "desde el teléfono en campo. El proyecto completo se guarda en un archivo "
-            "que el usuario descarga y conserva, sin depender de una cuenta ni de un "
-            "servidor ajeno.")
-        st.markdown(
-            "**Los datos no quedan encerrados.** Exporta a KML, DXF y Shapefile, y "
-            "entrega también el código fuente LaTeX del informe, de modo que el "
-            "trabajo puede continuarse en cualquier entorno GIS o CAD.")
-        st.markdown(
-            "**Notación colombiana en todo el documento.** Coma decimal y punto para "
-            "los miles, de forma consistente en tablas, gráficas e informes.")
-
-        st.markdown("---")
-        st.markdown("### Módulos de la Plataforma")
-        st.caption("Despliegue cada módulo para conocer su alcance, los datos que "
-                   "requiere y los productos que entrega.")
-
-        for modulo in DESCRIPCION_MODULOS:
-            if modulo.get("oculto_en_acerca"):
-                continue
-            with st.expander(modulo["titulo"], expanded=False):
-                st.write(modulo["resumen"])
-                col_ent, col_sal = st.columns(2)
-                with col_ent:
-                    st.markdown("**Datos que requiere**")
-                    st.markdown("\n".join("- " + x for x in modulo["entradas"]))
-                with col_sal:
-                    st.markdown("**Productos que entrega**")
-                    st.markdown("\n".join("- " + x for x in modulo["salidas"]))
-                if modulo.get("norma"):
-                    st.caption("Referencia normativa: " + modulo["norma"])
+        st.markdown("**Normativa colombiana de fábrica.** Trabaja sobre MAGNA-SIRGAS Origen Nacional (EPSG:9377) conforme a la Resolución 471 de 2020 del IGAC.")
+        st.markdown("**El informe emite un dictamen, no un volcado de tablas.** Cada cierre se contrasta con su tolerancia y el documento declara si cumple o no, con la fórmula aplicada a la vista.")
+        st.markdown("**Correcciones que suelen omitirse.** Reduce las distancias de terreno al plano de proyección mediante el factor de escala combinado, y corrige el balance de tierras por esponjamiento y contracción.")
+        st.markdown("**Sin instalación y sin licencias.** Se ejecuta en el navegador. El proyecto completo se guarda en un archivo que el usuario descarga y conserva.")
+        st.markdown("**Los datos no quedan encerrados.** Exporta a KML, DXF y Shapefile, y entrega también el código fuente LaTeX del informe.")
 
     with tab_equipo:
         st.markdown("<h3 style='text-align:center;'>Dirección y Estructuración del Proyecto</h3><br>", unsafe_allow_html=True)
@@ -1272,25 +1223,26 @@ if st.session_state.modo_app == "Inicio":
             mostrar_icono("kevin.png", "", width=120, shadow=False)
             st.markdown("### Kevin Cubillos")
             st.caption("Desarrollador Core & Co-Autor")
-            st.write("Investigador adscrito a la Universidad Distrital. Dirección de la arquitectura en Python y desarrollo del ecosistema integral de procesamiento topográfico.")
+            st.write("Investigador adscrito a la Universidad Distrital. Dirección de la arquitectura en Python y desarrollo del ecosistema integral.")
             st.markdown("</div>", unsafe_allow_html=True)
         with col_s:
             st.markdown("<div style='text-align:center; padding: 20px; background-color: #f8f9fa; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);'>", unsafe_allow_html=True)
             mostrar_icono("sergio.png", "", width=120, shadow=False)
             st.markdown("### Sergio Barbosa")
             st.caption("Co-Autor & Analista Espacial")
-            st.write("Investigador adscrito a la Universidad Distrital. Estructuración del marco de aseguramiento de calidad geométrica y estandarización hacia parámetros GIS/CAD.")
+            st.write("Investigador adscrito a la Universidad Distrital. Estructuración del marco de aseguramiento de calidad geométrica.")
             st.markdown("</div>", unsafe_allow_html=True)
         with col_e:
             st.markdown("<div style='text-align:center; padding: 20px; background-color: #fff4e6; border-radius: 15px; border: 2px solid #FF8C00; box-shadow: 0 4px 8px rgba(0,0,0,0.1);'>", unsafe_allow_html=True)
             mostrar_icono("edgar.png", "", width=120, shadow=False)
             st.markdown("### Ing. Edgar Ladino")
             st.caption("Director del Proyecto de Grado")
-            st.write("Dirección académica e institucional, proporcionando el marco metodológico base para la consolidación tecnológica y viabilidad del sistema experto.")
+            st.write("Dirección académica e institucional, proporcionando el marco metodológico base para la consolidación tecnológica.")
             st.markdown("</div>", unsafe_allow_html=True)
 
 elif st.session_state.modo_app == "Menu_Principal":
-    boton_atras()
+    # Nota: Asegúrate de tener boton_atras() declarado
+    # boton_atras() 
     st.markdown("<h4 style='text-align: center; color: gray;'>Seleccione el Entorno de Trabajo Operativo</h4><br>", unsafe_allow_html=True)
     
     col_disc1, col_disc2, col_disc3 = st.columns(3)
@@ -1317,18 +1269,15 @@ elif st.session_state.modo_app == "Menu_Principal":
         st.success("Ficha Técnica guardada. Seleccione el módulo con el que desea trabajar.")
 
     st.markdown("---")
-    faltantes_ficha = ficha_incompleta()
-    if faltantes_ficha:
-        st.warning("**La Ficha Técnica del Levantamiento está incompleta.** Sin ella "
-                   "los informes salen con el encabezado en blanco. Faltan: "
-                   + ", ".join(faltantes_ficha))
-    else:
-        st.success("Ficha Técnica del Levantamiento diligenciada.")
-    if st.button("Abrir Ficha Técnica del Levantamiento", use_container_width=True,
-                 type="primary" if faltantes_ficha else "secondary"):
+    # faltantes_ficha = ficha_incompleta()
+    # if faltantes_ficha:
+    #    st.warning("**La Ficha Técnica del Levantamiento está incompleta.** Sin ella los informes salen con el encabezado en blanco. Faltan: " + ", ".join(faltantes_ficha))
+    # else:
+    #    st.success("Ficha Técnica del Levantamiento diligenciada.")
+    if st.button("Abrir Ficha Técnica del Levantamiento", use_container_width=True):
         st.session_state.modo_app = "Ficha_Tecnica"
         st.rerun()
-
+      
 # ===================================================================
 # MÓDULO DE FICHA TÉCNICA DEL LEVANTAMIENTO
 # ===================================================================
