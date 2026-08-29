@@ -1062,7 +1062,7 @@ with st.sidebar:
     mostrar_icono("logo_geopol.svg", fallback_emoji="🌍", width=180, shadow=False, hover_effect=True, link_nav="Inicio")
     st.markdown("---")
 
-    if st.session_state.get("proyecto_actual"):
+      if st.session_state.get("proyecto_actual"):
         st.info(f"**Proyecto Activo:**\n### {st.session_state.get('proyecto_actual')}")
 
         datos_gp = generar_datos_guardado()
