@@ -1393,7 +1393,7 @@ elif st.session_state.modo_app == "Ficha_Tecnica":
             presion = c3.number_input("Presión (hPa)", value=float(f["presion"]),
                                       step=1.0, format="%.0f")
             st.caption("Temperatura y presión son los valores con los que se aplicó "
-                       "la corrección atmosférica del distanciómetro.")
+                       "la corrección atmosférica del equipo.")
 
             observaciones = st.text_area(
                 "Observaciones generales", value=f["observaciones"], height=80,
@@ -1600,30 +1600,39 @@ elif st.session_state.modo_app == "Predios":
 
     st.subheader(f"Interfaz de Satélite -> Transformación Cartográfica: {nombre_proyeccion}")
     col_gps1, col_gps2 = st.columns([1, 2])
+    
     with col_gps1: 
+        # Retiramos el 'key' ya que la librería no lo soporta
         location = streamlit_geolocation()
     
     with col_gps2:
         if location and location['latitude'] is not None:
-            lat_gps, lon_gps, alt_gps = location['latitude'], location['longitude'], location['altitude'] or 100.0
-            resultados_conversion = motor_igac.convertir_coordenada(lat_gps, lon_gps)
-            x_plana = resultados_conversion[nombre_proyeccion]["Este"]
-            y_plana = resultados_conversion[nombre_proyeccion]["Norte"]
-            
-            st.success(f"Posición Satelital Identificada: Lat {lat_gps:.9f}°, Lon {lon_gps:.9f}°")
-            
-            if st.button("Añadir Coordenada Local como Vértice del Predio", type="primary"):
-                nuevo_vertice = {
-                    "Punto": f"M{len(st.session_state.df_predios_campo) + 1}", 
-                    "Este": round(x_plana, 3), 
-                    "Norte": round(y_plana, 3),
-                    "Colindante": "---",
-                    "Tipo de Lindero": "---",
-                    "Materialización": "---",
-                    "Registro_Fotografico": False
-                }
-                st.session_state.df_predios_campo = pd.concat([st.session_state.df_predios_campo, pd.DataFrame([nuevo_vertice])], ignore_index=True)
-                st.rerun() 
+            # LÓGICA DE DESBLOQUEO: Comparamos si esta coordenada es la que acabamos de guardar
+            if st.session_state.get("ultimo_gps_registrado") == location:
+                st.info("✅ Vértice añadido a la tabla. Desplácese al siguiente punto y presione el ícono del GPS para tomar una nueva lectura.")
+            else:
+                lat_gps, lon_gps, alt_gps = location['latitude'], location['longitude'], location['altitude'] or 100.0
+                resultados_conversion = motor_igac.convertir_coordenada(lat_gps, lon_gps)
+                x_plana = resultados_conversion[nombre_proyeccion]["Este"]
+                y_plana = resultados_conversion[nombre_proyeccion]["Norte"]
+                
+                st.success(f"Posición Satelital Identificada: Lat {lat_gps:.9f}°, Lon {lon_gps:.9f}°")
+                
+                if st.button("Añadir Coordenada Local como Vértice del Predio", type="primary"):
+                    nuevo_vertice = {
+                        "Punto": f"M{len(st.session_state.df_predios_campo) + 1}", 
+                        "Este": round(x_plana, 3), 
+                        "Norte": round(y_plana, 3),
+                        "Colindante": "---",
+                        "Tipo de Lindero": "---",
+                        "Materialización": "---",
+                        "Registro_Fotografico": False
+                    }
+                    st.session_state.df_predios_campo = pd.concat([st.session_state.df_predios_campo, pd.DataFrame([nuevo_vertice])], ignore_index=True)
+                    
+                    # Guardamos la huella de esta lectura para evitar que el botón se quede "pegado"
+                    st.session_state.ultimo_gps_registrado = location
+                    st.rerun() 
         else: 
             st.caption("Receptando señal GPS del hardware local...")
 
