@@ -996,17 +996,12 @@ def iniciar_motor_coordenadas():
 motor_igac = iniciar_motor_coordenadas()
 inicializar_variables_proyecto()
 
-# Capturar navegación desde imágenes clickeables
-if "nav" in st.query_params:
-    st.session_state.modo_app = st.query_params["nav"]
-st.query_params.clear()
-
 @st.cache_data(show_spinner=False)
 def obtener_b64_imagen(ruta):
     with open(ruta, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
 
-def mostrar_icono(nombre_archivo, fallback_emoji="", width=120, hover_effect=True, shadow=True, border_radius="30px", link_nav=None):
+def mostrar_icono(nombre_archivo, fallback_emoji="", width=120, hover_effect=True, shadow=True, border_radius="30px"):
     ruta = os.path.join("Iconos", nombre_archivo)
     if not os.path.exists(ruta):
         ruta_alt = ruta.replace(".png", ".svg") if nombre_archivo.endswith(".png") else ruta.replace(".svg", ".png")
@@ -1026,10 +1021,6 @@ def mostrar_icono(nombre_archivo, fallback_emoji="", width=120, hover_effect=Tru
     html += "}</style>"
 
     img_html = f'<img src="data:{mime_type};base64,{b64}" class="{css_class}">'
-    
-    # Si la imagen tiene un destino, la envolvemos en un enlace HTML
-    if link_nav:
-        img_html = f'<a href="/?nav={link_nav}" target="_self">{img_html}</a>'
         
     st.markdown(f'{html}<div style="text-align:center;">{img_html}</div><br>', unsafe_allow_html=True)
 
@@ -1298,22 +1289,22 @@ elif st.session_state.modo_app == "Menu_Principal":
     
     col_disc1, col_disc2, col_disc3 = st.columns(3)
     with col_disc1:
-        mostrar_icono("planimetria.png", "", width=160, link_nav="Menu_Poligonales")
+        mostrar_icono("planimetria.png", "", width=160)
         if st.button("Planimetría", use_container_width=True): st.session_state.modo_app = "Menu_Poligonales"; st.rerun()
     with col_disc2:
-        mostrar_icono("altimetria.png", "", width=292, link_nav="Menu_Altimetria")
+        mostrar_icono("altimetria.png", "", width=292)
         if st.button("Altimetría", use_container_width=True): st.session_state.modo_app = "Menu_Altimetria"; st.rerun()
     with col_disc3:
-        mostrar_icono("levantamiento_predial.png", "🏡", width=290, link_nav="Predios")
+        mostrar_icono("levantamiento_predial.png", "🏡", width=290)
         if st.button("Levantamiento Predial", use_container_width=True): st.session_state.modo_app = "Predios"; st.rerun()
         
     st.markdown("<br>", unsafe_allow_html=True)
     col_disc4, col_disc5, col_disc6 = st.columns(3)
     with col_disc4:
-        mostrar_icono("nube_puntos.png", "", width=160, link_nav="Nube_Puntos")
+        mostrar_icono("nube_puntos.png", "", width=160)
         if st.button("Nube de Puntos", use_container_width=True): st.session_state.modo_app = "Nube_Puntos"; st.rerun()
     with col_disc5:
-        mostrar_icono("volumenes.png", "", width=160, link_nav="Diseno_Vias")
+        mostrar_icono("volumenes.png", "", width=160)
         if st.button("Diseño Vial", use_container_width=True): st.session_state.modo_app = "Diseno_Vias"; st.rerun()
 
     if st.session_state.pop("ficha_recien_guardada", False):
@@ -1563,10 +1554,10 @@ elif st.session_state.modo_app == "Menu_Poligonales":
     st.markdown("<h3 style='text-align: center; color: #4A4A4A;'>Análisis Planimétrico (Poligonales)</h3><br>", unsafe_allow_html=True)
     colA, colB = st.columns(2)
     with colA:
-        mostrar_icono("poligonal_cerrada.png", "", width=240, link_nav="Cerrada")
+        mostrar_icono("poligonal_cerrada.png", "", width=240)
         if st.button("Ejecutar Circuito Cerrado", use_container_width=True): st.session_state.modo_app = "Cerrada"; st.rerun()
     with colB:
-        mostrar_icono("poligonal_abierta.png", "", width=240, link_nav="Abierta")
+        mostrar_icono("poligonal_abierta.png", "", width=240)
         if st.button("Ejecutar Poligonal Abierta", use_container_width=True): st.session_state.modo_app = "Abierta"; st.rerun()
 
 elif st.session_state.modo_app == "Menu_Altimetria":
@@ -1574,13 +1565,13 @@ elif st.session_state.modo_app == "Menu_Altimetria":
     st.markdown("<h3 style='text-align: center; color: #4A4A4A;'>Control Altimétrico y Análisis Vertical</h3><br>", unsafe_allow_html=True)
     colA, colB, colC = st.columns(3)
     with colA:
-        mostrar_icono("niv_cerrada.png", "", width=182, link_nav="Niv_Cerrada")
+        mostrar_icono("niv_cerrada.png", "", width=182)
         if st.button("Nivelación de Circuito Cerrado", use_container_width=True): st.session_state.modo_app = "Niv_Cerrada"; st.rerun()
     with colB:
-        mostrar_icono("niv_abierta.png", "", width=360, link_nav="Niv_Abierta")
+        mostrar_icono("niv_abierta.png", "", width=360)
         if st.button("Nivelación de Circuito Abierto", use_container_width=True): st.session_state.modo_app = "Niv_Abierta"; st.rerun()
     with colC:
-        mostrar_icono("volumenes.png", "", width=180, link_nav="Volumenes")
+        mostrar_icono("volumenes.png", "", width=180)
         if st.button("Cálculo de Volúmenes y Diseño", use_container_width=True): st.session_state.modo_app = "Volumenes"; st.rerun()
 
 # ===================================================================
