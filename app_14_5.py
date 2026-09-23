@@ -322,7 +322,7 @@ def guardar_perfil_altimetria_plt(df_niv, ruta):
 # ===================================================================
 VERSION_APP = "GeoPol Web 14.0"
 AUTORES = ["Kevin Stiven Cubillos Ramirez", "Sergio Eduardo Barbosa Torres"]
-TUTOR = "Ing. Edgar Ladino"
+TUTOR = "Por Definir"
 
 # Antes estaba duplicado en el módulo de nubes y en el de poligonales
 FICHA_POR_DEFECTO = {
@@ -1144,7 +1144,7 @@ if st.session_state.modo_app in ["Inicio", "Menu_Principal"]:
 
         st.markdown("""
         <div style='background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 5px solid #FF8C00; margin-top: 10px;'>
-            <span style='color: #0D47A1; font-size: 15px;'><b>Tutor:</b> Ing. Edgar Ladino &nbsp; | &nbsp; <b>Autores:</b> Kevin Stiven Cubillos Ramirez & Sergio Eduardo Barbosa Torres</span>
+            <span style='color: #0D47A1; font-size: 15px;'><b>Tutor:</b> Tutor por definir &nbsp; | &nbsp; <b>Autores:</b> Kevin Stiven Cubillos Ramirez & Sergio Eduardo Barbosa Torres</span>
         </div>
         """, unsafe_allow_html=True)
     st.markdown("---")
@@ -1277,8 +1277,8 @@ if st.session_state.modo_app == "Inicio":
             st.markdown("</div>", unsafe_allow_html=True)
         with col_e:
             st.markdown("<div style='text-align:center; padding: 20px; background-color: #fff4e6; border-radius: 15px; border: 2px solid #FF8C00; box-shadow: 0 4px 8px rgba(0,0,0,0.1);'>", unsafe_allow_html=True)
-            mostrar_icono("edgar.png", "", width=120, shadow=False)
-            st.markdown("### Ing. Edgar Ladino")
+            mostrar_icono("tutor.png", "", width=120, shadow=False)
+            st.markdown("### Tutor por definir")
             st.caption("Director del Proyecto de Grado")
             st.write("Dirección académica e institucional, proporcionando el marco metodológico base para la consolidación tecnológica y viabilidad del sistema experto.")
             st.markdown("</div>", unsafe_allow_html=True)
